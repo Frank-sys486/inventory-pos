@@ -16,6 +16,13 @@ Before building, you must get the unique ID of the target computer:
 ### 2. Update the Lock
 Open `launcher.js` and `main.js` in your source code and update the `ALLOWED_HWID` variable with the ID you copied.
 
+### 3. Configure the Environment (.env)
+The standalone EXE requires a `.env` file to be present in the project root *before* you build. Ensure your `.env` contains:
+* `MONGODB_URI`: The connection string for the database.
+* `AUTH_SECRET`: A secure key for login sessions.
+* `AUTH_TRUST_HOST=true`: Required for standalone authentication.
+* `DEVELOPER_MODE`: Set to `false` for production/client use.
+
 ---
 
 ## 🪟 Windows Build (Single .EXE)
