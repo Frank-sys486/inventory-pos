@@ -14,6 +14,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
         
+        // 1. Check Master Admin from .env
+        const adminEmail = process.env.ADMIN_EMAIL;
+        const adminPassword = process.env.ADMIN_PASSWORD;
+
+        if (adminEmail && adminPassword && 
+            credentials.email === adminEmail && 
+            credentials.password === adminPassword) {
+          return {
+            id: "admin-master",
+            email: adminEmail,
+            name: "Master Admin",
+          };
+        }
+
         await connectToDatabase();
         // Dynamic User model definition to avoid schema issues in some environments
         const User = mongoose.models.User || mongoose.model('User', new mongoose.Schema({
