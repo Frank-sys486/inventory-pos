@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas Receipt</title>
+    <style>
+        :root {
+            --bg-color: #e0e0e0;
+        }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .controls {
+            margin-bottom: 20px;
+        }
+
+        button {
+            background-color: #333;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: #555;
+        }
+
+        /* Container to handle responsive scaling of the canvas */
+        .canvas-container {
+            width: 100%;
+            max-width: 450px; /* Slightly increased to allow larger display on screen */
+            display: flex;
+            justify-content: center;
+            filter: drop-shadow(0 15px 25px rgba(0,0,0,0.15));
+        }
+
+        canvas {
+            width: 100% !important; /* Forces canvas to scale down on small screens */
+            height: auto !important;
+            /* The actual pixel resolution is managed in JS for crispness */
+        }
+
+        /* Print Specific Styles */
+        @media print {
+            @page {
+                margin: 0;
+            }
+            body {
+                background-color: white;
+                padding: 0;
+                margin: 0;
+                width: 58mm;
+            }
+            .controls {
+                display: none; /* Hide button when printing */
+            }
+            .canvas-container {
+                width: 100%;
+                max-width: none;
+                filter: none; /* Remove drop shadow for cleaner print */
+                margin: 0;
+                box-shadow: none;
+            }
+            canvas {
+                /* Force high contrast to ensure #333 becomes black for thermal printers */
+                filter: grayscale(100%) contrast(1000%);
+            }
+            * {
+                color: black !important;
+                font-weight: bold !important;
+                text-shadow: none !important;
+                box-shadow: none !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="controls">
+        <button onclick="window.print()">🖨️ Print Receipt</button>
+        <button onclick="printViaWebUSB()">🔌 Print via USB</button>
+    </div>
+
+    <div class="canvas-container">
+        <canvas id="receiptCanvas"></canvas>
+    </div>
+
+    <script>
+        // Data for the receipt
+        const receiptData = {
+            shopName: "FIN OPEN POS",
+            address: "YOUR BUSINESS ADDRESS",
+            phone: "TELP. 12345678",
+            title: "CASH RECEIPT",
+            date: new Date().toLocaleDateString(),
+            time: new Date().toLocaleTimeString(),
+            items: [
+                { name: "PRODUCT 1", quantity: 2, price: 5.50 },
+                { name: "PRODUCT 2", quantity: 1, price: 10.00 },
+                { name: "LONG PRODUCT NAME", quantity: 3, price: 15.25 }
+            ],
+            totals: {
+                total: "61.25",
+                cash: "100.00",
+                change: "38.75"
+            },
+            payment: {
+                method: "CASH",
+                cardNum: "--- --- 234",
+                approvalText: "Approval Code",
+                approvalCode: "#123456"
+            },
+            footer: "THANK YOU!",
+            subFooter: "PLEASE COME AGAIN"
+        };
+
+        function drawReceipt() {
+            const canvas = document.getElementById('receiptCanvas');
+            const ctx = canvas.getContext('2d');
+
+            // Logical dimensions of the receipt
+            const logicalWidth = 400;
+            const logicalHeight = 800;
+
+            const scale = window.devicePixelRatio || 2; 
+            const printScale = 3; 
+            const finalScale = Math.max(scale, printScale);
+
+            canvas.width = logicalWidth * finalScale;
+            canvas.height = logicalHeight * finalScale;
+            
+            canvas.style.aspectRatio = `${logicalWidth} / ${logicalHeight}`;
+            ctx.scale(finalScale, finalScale);
+
+            drawPaperShape(ctx, logicalWidth, logicalHeight);
+
+            ctx.fillStyle = '#333333'; 
+            
+            const drawCenterText = (text, y, font) => {
+                ctx.font = font;
+                ctx.textAlign = 'center';
+                ctx.fillText(text, logicalWidth / 2, y);
+            };
+
+            const drawRow = (leftText, rightText, y, fontLeft, fontRight) => {
+                const margin = 35;
+                ctx.textAlign = 'left';
+                ctx.font = fontLeft || '16px monospace';
+                ctx.fillText(leftText, margin, y);
+                
+                ctx.textAlign = 'right';
+                ctx.font = fontRight || fontLeft || '16px monospace';
+                ctx.fillText(rightText, logicalWidth - margin, y);
+            };
+
+            const drawLine = (y) => {
+                drawCenterText('---------------------------------', y, '16px monospace');
+            };
+
+            const drawStars = (y) => {
+                drawCenterText('* * * * * * * * * * * * * * * * *', y, '16px monospace');
+            };
+
+            let currentY = 70;
+
+            // Header
+            drawCenterText(receiptData.shopName.toUpperCase(), currentY, 'bold 30px monospace');
+            currentY += 28;
+            drawCenterText(receiptData.address.toUpperCase(), currentY, '16px monospace');
+            currentY += 20;
+            drawCenterText(receiptData.phone.toUpperCase(), currentY, '16px monospace');
+            currentY += 25;
+            
+            drawStars(currentY);
+            currentY += 25;
+            
+            drawCenterText(receiptData.title.toUpperCase(), currentY, 'bold 22px monospace');
+            currentY += 25;
+            
+            drawStars(currentY);
+            currentY += 35;
+
+            // Info
+            drawRow(`DATE: ${receiptData.date}`, "", currentY, '16px monospace');
+            currentY += 22;
+            drawRow(`TIME: ${receiptData.time}`, "", currentY, '16px monospace');
+            currentY += 25;
+
+            drawLine(currentY);
+            currentY += 30;
+
+            // Items
+            receiptData.items.forEach(item => {
+                const name = item.name.toUpperCase().substring(0, 18);
+                const qty = `x${item.quantity}`;
+                const price = (item.price * item.quantity).toFixed(2);
+                drawRow(`${name} ${qty}`, price, currentY, '18px monospace');
+                currentY += 28;
+            });
+            currentY += 10;
+
+            drawLine(currentY);
+            currentY += 35;
+
+            // Totals
+            const totalItems = receiptData.items.reduce((sum, item) => sum + item.quantity, 0);
+            drawRow(`TOTAL ITEMS:`, totalItems.toString(), currentY, '16px monospace');
+            currentY += 35;
+
+            drawRow("TOTAL", receiptData.totals.total, currentY, 'bold 28px monospace', 'bold 28px monospace');
+            currentY += 35;
+            drawRow("CASH", receiptData.totals.cash, currentY, '17px monospace', '17px monospace');
+            currentY += 26;
+            drawRow("CHANGE", receiptData.totals.change, currentY, '17px monospace', '17px monospace');
+            currentY += 35;
+
+            drawStars(currentY);
+            currentY += 35;
+
+            // Payment Info
+            drawRow("PAYMENT:", receiptData.payment.method.toUpperCase(), currentY, '17px monospace', '17px monospace');
+            currentY += 35;
+
+            // Footer
+            drawCenterText(receiptData.footer.toUpperCase(), currentY, 'bold 20px monospace');
+            currentY += 25;
+            drawCenterText(receiptData.subFooter.toUpperCase(), currentY, '16px monospace');
+            currentY += 25;
+            drawStars(currentY);
+            currentY += 50;
+
+            // Barcode
+            drawBarcode(ctx, logicalWidth / 2 - 105, currentY, 210, 50);
+        }
+
+        function drawPaperShape(ctx, width, height) {
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            
+            const toothSize = 6; // Size of the jagged triangles
+
+            // Top jagged edge
+            ctx.moveTo(0, toothSize);
+            for (let x = 0; x <= width; x += toothSize) {
+                ctx.lineTo(x, (x / toothSize) % 2 === 0 ? toothSize : 0);
+            }
+
+            // Right edge
+            ctx.lineTo(width, height - toothSize);
+
+            // Bottom jagged edge
+            for (let x = width; x >= 0; x -= toothSize) {
+                ctx.lineTo(x, ((width - x) / toothSize) % 2 === 0 ? height - toothSize : height);
+            }
+
+            // Left edge
+            ctx.lineTo(0, toothSize);
+            
+            ctx.fill();
+            ctx.closePath();
+        }
+
+        function drawBarcode(ctx, x, y, width, height) {
+            ctx.fillStyle = '#333333';
+            let currentX = x;
+            
+            // Hardcoded pattern to look like the reference image barcode
+            const pattern = [
+                3, 2, 1, 3, 2, 1, 4, 1, 1, 2, 3, 1, 2, 2, 1, 3, 4, 1, 2, 1, 3, 2, 1, 1, 2, 3, 1, 4
+            ];
+
+            // Normalize pattern to fit width
+            const totalPatternWidth = pattern.reduce((a, b) => a + b, 0);
+            const unitWidth = width / totalPatternWidth;
+
+            for (let i = 0; i < pattern.length; i++) {
+                let barWidth = pattern[i] * unitWidth;
+                // Draw every other as a black bar, skip the rest (white space)
+                if (i % 2 === 0) {
+                    ctx.fillRect(currentX, y, barWidth, height);
+                }
+                currentX += barWidth;
+            }
+        }
+
+        // Wait for fonts to load before drawing to ensure correct rendering
+        document.fonts.ready.then(() => {
+            drawReceipt();
+        });
+
+        // Redraw if window is resized just in case devicePixelRatio changes (e.g., moving between monitors)
+        window.addEventListener('resize', drawReceipt);
+
+        // WebUSB Printing Logic
+        async function printViaWebUSB() {
+            if (!navigator.usb) {
+                alert("WebUSB is not supported in this browser. Please use Chrome or Edge.");
+                return;
+            }
+
+            try {
+                // Request a USB device. 
+                // We filter by Printer Class (7). If your printer doesn't show up, 
+                // you might need to add { vendorId: 0xXXXX } to the filters.
+                const device = await navigator.usb.requestDevice({
+                    filters: [{ classCode: 7 }] 
+                });
+
+                await device.open();
+                await device.selectConfiguration(1);
+                await device.claimInterface(0);
+
+                const encoder = new TextEncoder();
+                const data = [];
+
+                const add = (...bytes) => data.push(...bytes);
+                const addText = (text) => {
+                    const encoded = encoder.encode(text);
+                    encoded.forEach(b => data.push(b));
+                };
+                const addLine = (text) => {
+                    addText(text);
+                    add(0x0A); // Line feed
+                };
+
+                // Initialize printer
+                add(0x1B, 0x40);
+
+                // Center align
+                add(0x1B, 0x61, 0x01);
+
+                // Shop Name (Double Height/Width)
+                add(0x1D, 0x21, 0x11); 
+                addLine(receiptData.shopName);
+                add(0x1D, 0x21, 0x00); // Reset
+
+                addLine(receiptData.address);
+                addLine(receiptData.phone);
+                add(0x0A);
+
+                // Title (Bold)
+                add(0x1B, 0x45, 0x01);
+                addLine(receiptData.title);
+                add(0x1B, 0x45, 0x00);
+                add(0x0A);
+
+                // Left align for items
+                add(0x1B, 0x61, 0x00);
+
+                // Helper for columns (assuming 32 chars for 58mm paper)
+                const pad = (left, right, width = 32) => {
+                    const space = width - left.length - right.length;
+                    if (space < 0) return left + " " + right;
+                    return left + " ".repeat(space) + right;
+                };
+
+                addLine(pad("Description", "Price"));
+                addLine("-".repeat(32));
+
+                receiptData.items.forEach(item => {
+                    addLine(pad(item.desc, item.price));
+                });
+                
+                addLine("-".repeat(32));
+
+                // Totals
+                add(0x1B, 0x45, 0x01); // Bold
+                addLine(pad("Total", receiptData.totals.total));
+                add(0x1B, 0x45, 0x00);
+                addLine(pad("Cash", receiptData.totals.cash));
+                addLine(pad("Change", receiptData.totals.change));
+                add(0x0A);
+
+                // Footer (Center)
+                add(0x1B, 0x61, 0x01);
+                addLine(receiptData.footer);
+                add(0x0A);
+                add(0x0A);
+                add(0x0A); // Feed
+
+                // Cut paper
+                add(0x1D, 0x56, 0x42, 0x00);
+
+                // Find the OUT endpoint
+                const interface = device.configuration.interfaces[0];
+                const endpoint = interface.alternate.endpoints.find(e => e.direction === 'out');
+
+                if (endpoint) {
+                    await device.transferOut(endpoint.endpointNumber, new Uint8Array(data));
+                } else {
+                    alert("Error: No output endpoint found on this device.");
+                }
+
+                await device.close();
+
+            } catch (error) {
+                console.error(error);
+                alert("Printing failed: " + error.message);
+            }
+        }
+    </script>
+</body>
+</html>

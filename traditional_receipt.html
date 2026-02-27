@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Traditional Digital Receipt</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+
+        /* Print-specific styles for physical accuracy */
+        @media print {
+            body {
+                background-color: white !important;
+                margin: 0;
+                padding: 0;
+            }
+            .no-print {
+                display: none !important;
+            }
+            #receipt-card {
+                box-shadow: none !important;
+                max-width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            .thermal-edge::after {
+                display: none !important;
+            }
+        }
+        
+        /* Thermal paper typography and formatting */
+        .receipt-font {
+            font-family: 'Courier New', Courier, monospace;
+            text-transform: uppercase;
+        }
+
+        /* Torn paper edge effect for the bottom */
+        .thermal-edge {
+            position: relative;
+        }
+        .thermal-edge::after {
+            content: "";
+            position: absolute;
+            bottom: -8px;
+            left: 0;
+            right: 0;
+            height: 8px;
+            background-size: 16px 16px;
+            background-image: linear-gradient(135deg, transparent 25%, #ffffff 25%, #ffffff 50%, transparent 50%, transparent 75%, #ffffff 75%, #ffffff 100%), 
+                              linear-gradient(225deg, transparent 25%, #ffffff 25%, #ffffff 50%, transparent 50%, transparent 75%, #ffffff 75%, #ffffff 100%);
+            background-position: 0 0, 8px 0;
+        }
+    </style>
+</head>
+<body class="bg-gray-800 min-h-screen py-10 px-4 flex flex-col items-center">
+
+    <!-- Action Bar (Hidden when printing) -->
+    <div class="no-print w-full max-w-[340px] mb-6 flex justify-end gap-3">
+        <button onclick="window.print()" class="bg-gray-200 hover:bg-white text-gray-900 px-4 py-2 text-sm font-bold border-2 border-gray-400 font-mono transition-colors shadow-[2px_2px_0px_rgba(0,0,0,1)]">
+            [ PRINT ]
+        </button>
+        <button id="copy-btn" class="bg-gray-200 hover:bg-white text-gray-900 px-4 py-2 text-sm font-bold border-2 border-gray-400 font-mono transition-colors shadow-[2px_2px_0px_rgba(0,0,0,1)]">
+            [ COPY ]
+        </button>
+    </div>
+
+    <!-- Main Receipt Card -->
+    <div id="receipt-card" class="bg-white w-full max-w-[340px] receipt-font text-black p-6 thermal-edge shadow-2xl relative">
+        
+        <!-- Header Section -->
+        <div class="text-center mb-4">
+            <h1 class="text-2xl font-bold mb-1">TECHMART INC.</h1>
+            <p class="text-sm">123 COMMERCE AVENUE</p>
+            <p class="text-sm">SILICON VALLEY, CA 94025</p>
+            <p class="text-sm">TEL: (555) 019-8372</p>
+        </div>
+
+        <div class="border-t-2 border-dashed border-black my-3"></div>
+
+        <!-- Meta Information -->
+        <div class="text-sm mb-3">
+            <div class="flex justify-between">
+                <span>DATE:</span>
+                <span id="current-date">--</span>
+            </div>
+            <div class="flex justify-between">
+                <span>RCPT:</span>
+                <span>#TM-882910</span>
+            </div>
+            <div class="flex justify-between">
+                <span>CASHIER:</span>
+                <span>04 (JOHN D.)</span>
+            </div>
+        </div>
+
+        <div class="border-t-2 border-dashed border-black my-3"></div>
+
+        <!-- Column Headers -->
+        <div class="flex justify-between text-sm font-bold mb-2">
+            <span>QTY ITEM</span>
+            <span>TOTAL</span>
+        </div>
+
+        <!-- Items List -->
+        <div id="items-body" class="text-sm pb-2 space-y-3">
+            <!-- Items will be injected here via JS -->
+        </div>
+
+        <div class="border-t-2 border-dashed border-black my-3"></div>
+
+        <!-- Calculations -->
+        <div class="text-sm space-y-1">
+            <div class="flex justify-between">
+                <span>SUBTOTAL</span>
+                <span id="subtotal-display">$0.00</span>
+            </div>
+            <div class="flex justify-between">
+                <span>TAX (8.5%)</span>
+                <span id="tax-display">$0.00</span>
+            </div>
+            <div class="flex justify-between font-bold text-lg mt-2 pt-2 border-t-2 border-black">
+                <span>TOTAL</span>
+                <span id="total-display">$0.00</span>
+            </div>
+        </div>
+
+        <div class="border-t-2 border-dashed border-black my-3"></div>
+
+        <!-- Payment Info -->
+        <div class="text-sm space-y-1 mb-6">
+            <div class="flex justify-between">
+                <span>TENDER:</span>
+                <span>VISA</span>
+            </div>
+            <div class="flex justify-between">
+                <span>ACCT:</span>
+                <span>**** **** **** 4242</span>
+            </div>
+            <div class="flex justify-between">
+                <span>AUTH:</span>
+                <span>09283A</span>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="text-center text-sm">
+            <p class="font-bold mb-2">*** THANK YOU ***</p>
+            <p class="mb-4">RETURNS ACCEPTED WITHIN<br>30 DAYS WITH RECEIPT</p>
+            
+            <!-- Simplified ASCII-style barcode -->
+            <div class="flex justify-center mb-1">
+                <svg width="200" height="45" viewBox="0 0 200 45" class="fill-current text-black">
+                    <rect x="0" y="0" width="3" height="45"/>
+                    <rect x="5" y="0" width="1" height="45"/>
+                    <rect x="8" y="0" width="5" height="45"/>
+                    <rect x="15" y="0" width="2" height="45"/>
+                    <rect x="19" y="0" width="6" height="45"/>
+                    <rect x="27" y="0" width="2" height="45"/>
+                    <rect x="31" y="0" width="8" height="45"/>
+                    <rect x="42" y="0" width="1" height="45"/>
+                    <rect x="45" y="0" width="5" height="45"/>
+                    <rect x="53" y="0" width="4" height="45"/>
+                    <rect x="59" y="0" width="2" height="45"/>
+                    <rect x="63" y="0" width="7" height="45"/>
+                    <rect x="73" y="0" width="2" height="45"/>
+                    <rect x="77" y="0" width="5" height="45"/>
+                    <rect x="84" y="0" width="1" height="45"/>
+                    <rect x="87" y="0" width="8" height="45"/>
+                    <rect x="98" y="0" width="4" height="45"/>
+                    <rect x="104" y="0" width="2" height="45"/>
+                    <rect x="108" y="0" width="6" height="45"/>
+                    <rect x="116" y="0" width="2" height="45"/>
+                    <rect x="120" y="0" width="5" height="45"/>
+                    <rect x="127" y="0" width="1" height="45"/>
+                    <rect x="130" y="0" width="7" height="45"/>
+                    <rect x="139" y="0" width="3" height="45"/>
+                    <rect x="144" y="0" width="2" height="45"/>
+                    <rect x="148" y="0" width="5" height="45"/>
+                    <rect x="155" y="0" width="4" height="45"/>
+                    <rect x="161" y="0" width="1" height="45"/>
+                    <rect x="164" y="0" width="8" height="45"/>
+                    <rect x="174" y="0" width="2" height="45"/>
+                    <rect x="178" y="0" width="5" height="45"/>
+                    <rect x="185" y="0" width="3" height="45"/>
+                    <rect x="190" y="0" width="1" height="45"/>
+                    <rect x="193" y="0" width="7" height="45"/>
+                </svg>
+            </div>
+            <p class="tracking-widest text-xs">882910394812</p>
+        </div>
+    </div>
+
+    <script>
+        // Data array - maintaining strict mathematical accuracy.
+        const purchasedItems = [
+            { id: "102", name: "ERGONOMIC MOUSE", qty: 1, price: 45.99 },
+            { id: "843", name: "USB-C ADAPTER", qty: 2, price: 18.50 },
+            { id: "991", name: "MECH KEYBOARD", qty: 1, price: 110.00 },
+            { id: "005", name: "CABLE TIES", qty: 3, price: 4.25 }
+        ];
+
+        const TAX_RATE = 0.085; // 8.5%
+
+        function formatCurrency(num) {
+            return '$' + num.toFixed(2);
+        }
+
+        function renderReceipt() {
+            // Set Date in traditional format MM/DD/YYYY HH:MM
+            const now = new Date();
+            const dateStr = `${(now.getMonth()+1).toString().padStart(2, '0')}/${now.getDate().toString().padStart(2, '0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+            document.getElementById('current-date').textContent = dateStr;
+
+            const tbody = document.getElementById('items-body');
+            let subtotal = 0;
+
+            // Render Items in POS format
+            purchasedItems.forEach(item => {
+                const itemTotal = item.qty * item.price;
+                subtotal += itemTotal;
+
+                const div = document.createElement('div');
+                div.innerHTML = `
+                    <div class="flex justify-between">
+                        <span>${item.qty} ${item.name}</span>
+                        <span>${formatCurrency(itemTotal)}</span>
+                    </div>
+                    <div class="pl-4 text-gray-600">
+                        @ ${formatCurrency(item.price)}
+                    </div>
+                `;
+                tbody.appendChild(div);
+            });
+
+            // Calculate exact totals
+            const tax = subtotal * TAX_RATE;
+            const total = subtotal + tax;
+
+            // Update DOM
+            document.getElementById('subtotal-display').textContent = formatCurrency(subtotal);
+            document.getElementById('tax-display').textContent = formatCurrency(tax);
+            document.getElementById('total-display').textContent = formatCurrency(total);
+        }
+
+        // Copy functionality (strips out HTML, creates a text receipt)
+        document.getElementById('copy-btn').addEventListener('click', () => {
+            const btn = document.getElementById('copy-btn');
+            const originalText = btn.innerText;
+            
+            try {
+                let textReceipt = `TECHMART INC.\n123 COMMERCE AVENUE\nSILICON VALLEY, CA 94025\n--------------------------------\n`;
+                textReceipt += `RCPT: #TM-882910\n`;
+                textReceipt += `DATE: ${document.getElementById('current-date').textContent}\n--------------------------------\n`;
+                textReceipt += `QTY ITEM                  TOTAL\n`;
+                
+                purchasedItems.forEach(item => {
+                    let line = `${item.qty} ${item.name}`;
+                    let totalStr = formatCurrency(item.qty * item.price);
+                    // Pad string to mimic 32-column width
+                    let spaces = 32 - line.length - totalStr.length;
+                    if (spaces < 1) spaces = 1;
+                    textReceipt += line + ' '.repeat(spaces) + totalStr + '\n';
+                    if (item.qty > 1) {
+                         textReceipt += `  @ ${formatCurrency(item.price)}\n`;
+                    }
+                });
+                
+                textReceipt += `--------------------------------\n`;
+                textReceipt += `SUBTOTAL:                 ${document.getElementById('subtotal-display').textContent.padStart(8)}\n`;
+                textReceipt += `TAX:                      ${document.getElementById('tax-display').textContent.padStart(8)}\n`;
+                textReceipt += `TOTAL:                    ${document.getElementById('total-display').textContent.padStart(8)}\n`;
+                textReceipt += `--------------------------------\n       *** THANK YOU ***\n`;
+                
+                const textArea = document.createElement("textarea");
+                textArea.value = textReceipt;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+
+                btn.innerText = `[ COPIED ]`;
+                setTimeout(() => { btn.innerText = originalText; }, 2000);
+            } catch (err) {
+                console.error('Failed to copy text: ', err);
+            }
+        });
+
+        // Initialize
+        renderReceipt();
+    </script>
+</body>
+</html>
