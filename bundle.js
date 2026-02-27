@@ -19,12 +19,35 @@ if (fs.existsSync(buildPackDir)) {
 }
 if (!fs.existsSync(buildPackDir)) fs.mkdirSync(buildPackDir, { recursive: true });
 
-// 3. Compile the secure launcher fresh
-console.log("Compiling secure launcher binary...");
+// 3. Compile the secure launcher fresh with HWID injection
+console.log("Injecting HWID and compiling secure launcher...");
 try {
-    execSync('npx pkg launcher.js --targets node18-win-x64 --output Start_FinOpenPOS.exe');
+    // Read HWID from .env
+    const envContent = fs.readFileSync('.env', 'utf8');
+    const hwidMatch = envContent.match(/ALLOWED_HWID=([^\r\n]+)/);
+    const targetHWID = hwidMatch ? hwidMatch[1].trim() : "";
+
+    if (!targetHWID) {
+        console.error("Error: ALLOWED_HWID not found in .env file!");
+        process.exit(1);
+    }
+
+    console.log(`Locking build to HWID: ${targetHWID}`);
+
+    // Create a temporary launcher with the ID baked in
+    let launcherContent = fs.readFileSync('launcher.js', 'utf8');
+    launcherContent = launcherContent.replace(
+        'const ALLOWED_HWID = process.env.ALLOWED_HWID || "DEVELOPMENT_MODE";',
+        `const ALLOWED_HWID = "${targetHWID}";`
+    );
+    fs.writeFileSync('launcher_temp.js', launcherContent);
+
+    // Compile the temp file
+    execSync('npx pkg launcher_temp.js --targets node18-win-x64 --output Start_FinOpenPOS.exe');
+    fs.unlinkSync('launcher_temp.js'); // Clean up temp file
+    console.log("Binary compilation successful.");
 } catch (e) {
-    console.log("Warning: Binary compilation failed. If Start_FinOpenPOS.exe exists, we will use the old one.");
+    console.log(`Warning: Binary compilation failed: ${e.message}`);
 }
 
 // 4. List of EVERY essential file/folder for Next.js Standalone

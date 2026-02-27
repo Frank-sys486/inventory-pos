@@ -15,7 +15,8 @@ function getHWID() {
   }
 }
 
-const ALLOWED_HWID = "00000000-0000-0000-0000-309C232230F0";
+// This value is automatically injected by bundle.js during compilation
+const ALLOWED_HWID = process.env.ALLOWED_HWID || "DEVELOPMENT_MODE";
 const currentHWID = getHWID();
 
 console.log("\n========================================");
