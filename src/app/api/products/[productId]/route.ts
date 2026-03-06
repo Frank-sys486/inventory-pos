@@ -1,6 +1,5 @@
 import { auth } from '@/auth'
-import connectToDatabase from '@/lib/mongodb'
-import Product from '@/models/Product'
+import { dbProducts } from '@/lib/pouchdb'
 import { NextResponse } from 'next/server'
 
 export async function GET(
@@ -8,25 +7,13 @@ export async function GET(
   { params }: { params: { productId: string } }
 ) {
   const session = await auth();
-  
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    await connectToDatabase();
-    const product = await Product.findOne({
-      _id: params.productId,
-      user_uid: (session.user as any).id
-    });
-
-    if (!product) {
-      return NextResponse.json({ error: 'Product not found' }, { status: 404 })
-    }
-
-    return NextResponse.json(product)
+    const product = await dbProducts.get(params.productId);
+    return NextResponse.json(product);
   } catch (error) {
-    return NextResponse.json({ error: (error as Error).message }, { status: 500 })
+    return NextResponse.json({ error: 'Product not found' }, { status: 404 });
   }
 }
 
@@ -35,42 +22,21 @@ export async function PATCH(
   { params }: { params: { productId: string } }
 ) {
   const session = await auth();
-  
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    const { code, name, description, price, cost, in_stock, category, unit } = await request.json();
-    await connectToDatabase();
+    const updateData = await request.json();
+    const existing: any = await dbProducts.get(params.productId);
     
-    const updateFields: any = {
-      name,
-      description,
-      price,
-      cost,
-      in_stock,
-      category,
-      unit,
+    const updated = {
+      ...existing,
+      ...updateData,
     };
 
-    if (code !== undefined) {
-      updateFields.code = code;
-    }
-
-    const product = await Product.findOneAndUpdate(
-      { _id: params.productId, user_uid: (session.user as any).id },
-      { $set: updateFields },
-      { returnDocument: 'after' }
-    );
-
-    if (!product) {
-      return NextResponse.json({ error: 'Product not found' }, { status: 404 })
-    }
-
-    return NextResponse.json(product)
+    const response = await dbProducts.put(updated);
+    return NextResponse.json({ ...updated, _rev: response.rev });
   } catch (error) {
-    return NextResponse.json({ error: (error as Error).message }, { status: 500 })
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
 }
 
@@ -79,24 +45,22 @@ export async function DELETE(
   { params }: { params: { productId: string } }
 ) {
   const session = await auth();
-  
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const isDeveloperMode = process.env.DEVELOPER_MODE === 'true';
 
   try {
-    await connectToDatabase();
-    const product = await Product.findOneAndDelete({
-      _id: params.productId,
-      user_uid: (session.user as any).id
-    });
+    const existing: any = await dbProducts.get(params.productId);
 
-    if (!product) {
-      return NextResponse.json({ error: 'Product not found' }, { status: 404 })
+    if (isDeveloperMode) {
+      await dbProducts.remove(existing);
+      return NextResponse.json({ message: 'Product permanently deleted' });
+    } else {
+      existing.isArchived = true;
+      await dbProducts.put(existing);
+      return NextResponse.json({ message: 'Product archived' });
     }
-
-    return NextResponse.json({ message: 'Product deleted' })
   } catch (error) {
-    return NextResponse.json({ error: (error as Error).message }, { status: 500 })
+    return NextResponse.json({ error: 'Product not found' }, { status: 404 });
   }
 }

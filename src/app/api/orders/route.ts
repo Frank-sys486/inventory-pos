@@ -1,94 +1,59 @@
 import { auth } from '@/auth'
-import connectToDatabase from '@/lib/mongodb'
-import Order from '@/models/Order'
-import Transaction from '@/models/Transaction'
-import Product from '@/models/Product'
+import { dbOrders, dbProducts, getAllDocs } from '@/lib/pouchdb'
 import { NextResponse } from 'next/server'
-import mongoose from 'mongoose'
 
-export async function GET(request: Request) {
-  const session = await auth()
-
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+export async function GET() {
+  const session = await auth();
+  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    await connectToDatabase()
-    const ordersData = await Order.find({
-      user_uid: (session.user as any).id,
-    })
-      .populate('customer_id', 'name')
-      .sort({ created_at: -1 })
-
-    const orders = ordersData.map((order) => {
-      const orderObject = order.toObject()
-      return {
-        ...orderObject,
-        id: orderObject._id.toString(), // Convert ObjectId to string
-        customer: orderObject.customer_id, // Rename customer_id to customer
-      }
-    })
-
-    return NextResponse.json(orders)
+    const docs = await getAllDocs(dbOrders);
+    // Filter by user and archive status
+    const filtered = docs.filter((d: any) => 
+      d.user_uid === (session.user as any).id && !d.isArchived
+    );
+    return NextResponse.json(filtered);
   } catch (error) {
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 })
   }
 }
 
 export async function POST(request: Request) {
   const session = await auth();
-  
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  const { customerId, paymentMethod, products, total } = await request.json();
-  const userId = (session.user as any).id;
+  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    await connectToDatabase();
-    
-    // 1. Create the Order with embedded items
-    // Note: Transactions removed for compatibility with standalone MongoDB instances
-    const order = await Order.create({
-      customer_id: customerId,
-      total_amount: total,
-      user_uid: userId,
-      status: 'completed',
-      items: products.map((p: any) => ({
-        product_id: p.id,
-        name: p.name, 
-        quantity: p.quantity,
-        price: p.price
-      }))
-    });
+    const data = await request.json();
+    const newDoc = {
+      _id: new Date().getTime().toString(),
+      ...data,
+      user_uid: (session.user as any).id,
+      isArchived: false,
+      created_at: new Date()
+    };
 
-    // 2. Create the Transaction record
-    await Transaction.create({
-      order_id: order._id,
-      payment_method: paymentMethod || 'Cash',
-      amount: total,
-      user_uid: userId,
-      status: 'completed',
-      category: 'selling',
-      type: 'income',
-      description: `Payment for order #${order._id}`
-    });
+    // Save the order
+    const orderResponse = await dbOrders.put(newDoc);
 
-    // 3. Update product stock
-    for (const item of products) {
-      await Product.updateOne(
-        { _id: item.id },
-        { $inc: { in_stock: -item.quantity } }
-      );
+    // Deduct stock for each product in the order
+    if (data.products && Array.isArray(data.products)) {
+      for (const item of data.products) {
+        try {
+          const productDoc: any = await dbProducts.get(item.id.toString());
+          const updatedProduct = {
+            ...productDoc,
+            in_stock: (productDoc.in_stock || 0) - item.quantity,
+          };
+          await dbProducts.put(updatedProduct);
+        } catch (err) {
+          console.error(`Failed to update stock for product ${item.id}:`, err);
+          // We continue with other products even if one fails
+        }
+      }
     }
 
-    return NextResponse.json(order);
+    return NextResponse.json({ ...newDoc, _rev: orderResponse.rev })
   } catch (error) {
-    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 })
   }
 }

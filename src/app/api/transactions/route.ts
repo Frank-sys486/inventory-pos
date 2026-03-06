@@ -1,30 +1,21 @@
 import { auth } from '@/auth'
-import connectToDatabase from '@/lib/mongodb'
-import Transaction from '@/models/Transaction'
+import { dbTransactions, getAllDocs } from '@/lib/pouchdb'
 import { NextResponse } from 'next/server'
 
-export async function GET(request: Request) {
+export async function GET() {
   const session = await auth();
-  
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const isDeveloperMode = process.env.DEVELOPER_MODE === 'true';
 
   try {
-    await connectToDatabase();
-    
-    const query: any = { user_uid: (session.user as any).id };
-    
-    // Hide archived items unless developer mode is active
-    if (!isDeveloperMode) {
-      query.isArchived = { $ne: true };
-    }
-
-    const transactions = await Transaction.find(query)
-      .sort({ created_at: -1 });
-    return NextResponse.json(transactions);
+    const docs = await getAllDocs(dbTransactions);
+    const filtered = docs.filter((d: any) => {
+      const isOwner = d.user_uid === (session.user as any).id;
+      const isNotArchived = isDeveloperMode ? true : !d.isArchived;
+      return isOwner && isNotArchived;
+    });
+    return NextResponse.json(filtered);
   } catch (error) {
     return NextResponse.json({ error: (error as Error).message }, { status: 500 })
   }
@@ -32,21 +23,20 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const session = await auth();
-  
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
     const data = await request.json();
-    await connectToDatabase();
-    
-    const transaction = await Transaction.create({
+    const newDoc = {
+      _id: new Date().getTime().toString(),
       ...data,
-      user_uid: (session.user as any).id
-    });
+      user_uid: (session.user as any).id,
+      isArchived: false,
+      created_at: new Date()
+    };
 
-    return NextResponse.json(transaction)
+    const response = await dbTransactions.put(newDoc);
+    return NextResponse.json({ ...newDoc, _rev: response.rev })
   } catch (error) {
     return NextResponse.json({ error: (error as Error).message }, { status: 500 })
   }

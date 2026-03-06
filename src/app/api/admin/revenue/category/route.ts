@@ -1,39 +1,26 @@
 import { auth } from '@/auth'
-import connectToDatabase from '@/lib/mongodb'
-import Transaction from '@/models/Transaction'
+import { dbOrders, getAllDocs } from '@/lib/pouchdb'
 import { NextResponse } from 'next/server'
 
-export async function GET(request: Request) {
+export async function GET() {
   const session = await auth();
-  
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    await connectToDatabase();
-    const revenueData = await Transaction.find({
-      user_uid: (session.user as any).id,
-      status: 'completed',
-      type: 'income'
-    });
+    const orders = await getAllDocs(dbOrders);
+    const revenueByCategory: Record<string, number> = {};
 
-    const revenueByCategory = revenueData?.reduce((acc, item) => {
-      const category = item.category;
-      if (!category) return acc;
-      
-      const amount = item.amount;
-      if (acc[category]) {
-        acc[category] += amount;
-      } else {
-        acc[category] = amount;
-      }
-      return acc;
-    }, {} as Record<string, number>);
+    orders
+      .filter((o: any) => o.status === 'completed' && !o.isArchived)
+      .forEach((o: any) => {
+        o.items.forEach((item: any) => {
+          const cat = item.category || "Uncategorized";
+          revenueByCategory[cat] = (revenueByCategory[cat] || 0) + (item.price * item.quantity);
+        });
+      });
 
     return NextResponse.json({ revenueByCategory });
   } catch (error) {
-    console.error('Error fetching revenue by category:', error);
-    return NextResponse.json({ error: 'Failed to fetch revenue by category' }, { status: 500 });
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 })
   }
 }

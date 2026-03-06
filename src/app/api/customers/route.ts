@@ -1,19 +1,15 @@
 import { auth } from '@/auth'
-import connectToDatabase from '@/lib/mongodb'
-import Customer from '@/models/Customer'
+import { dbCustomers, getAllDocs } from '@/lib/pouchdb'
 import { NextResponse } from 'next/server'
 
-export async function GET(request: Request) {
+export async function GET() {
   const session = await auth();
-  
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    await connectToDatabase();
-    const customers = await Customer.find({ user_uid: (session.user as any).id });
-    return NextResponse.json(customers);
+    const docs = await getAllDocs(dbCustomers);
+    const filtered = docs.filter((d: any) => !d.isArchived);
+    return NextResponse.json(filtered);
   } catch (error) {
     return NextResponse.json({ error: (error as Error).message }, { status: 500 })
   }
@@ -21,26 +17,19 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const session = await auth();
-  
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
     const data = await request.json();
-
-    // Sanitize data: remove empty strings for optional fields to avoid unique constraint errors
-    if (data.email === "") delete data.email;
-    if (data.phone === "") delete data.phone;
-
-    await connectToDatabase();
-    
-    const customer = await Customer.create({
+    const newDoc = {
+      _id: new Date().getTime().toString(),
       ...data,
-      user_uid: (session.user as any).id
-    });
+      isArchived: false,
+      created_at: new Date()
+    };
 
-    return NextResponse.json(customer)
+    const response = await dbCustomers.put(newDoc);
+    return NextResponse.json({ ...newDoc, _rev: response.rev })
   } catch (error) {
     return NextResponse.json({ error: (error as Error).message }, { status: 500 })
   }

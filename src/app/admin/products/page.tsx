@@ -232,12 +232,13 @@ export default function Products() {
       if (filters.category !== "all" && product.category !== filters.category) {
         return false;
       }
-      if (
-        filters.inStock !== "all" &&
-        filters.inStock === "in-stock" &&
-        product.in_stock === 0
-      ) {
-        return false;
+      if (filters.inStock !== "all") {
+        if (filters.inStock === "in-stock" && (product.in_stock || 0) <= 0) {
+          return false;
+        }
+        if (filters.inStock === "out-of-stock" && (product.in_stock || 0) > 0) {
+          return false;
+        }
       }
       return product.name.toLowerCase().includes(searchTerm.toLowerCase());
     });

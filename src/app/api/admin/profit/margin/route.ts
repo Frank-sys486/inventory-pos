@@ -1,45 +1,39 @@
 import { auth } from '@/auth'
-import connectToDatabase from '@/lib/mongodb'
-import Transaction from '@/models/Transaction'
+import { dbOrders, dbTransactions, getAllDocs } from '@/lib/pouchdb'
 import { NextResponse } from 'next/server'
 
-export async function GET(request: Request) {
+export async function GET() {
   const session = await auth();
-  
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    await connectToDatabase();
-    
-    const result = await Transaction.aggregate([
-      {
-        $match: {
-          user_uid: (session.user as any).id,
-          status: 'completed'
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          totalRevenue: { 
-            $sum: { $cond: [ { $eq: ['$type', 'income'] }, '$amount', 0 ] } 
-          },
-          totalExpenses: { 
-            $sum: { $cond: [ { $eq: ['$type', 'expense'] }, '$amount', 0 ] } 
-          }
-        }
-      }
+    const [orders, transactions] = await Promise.all([
+      getAllDocs(dbOrders),
+      getAllDocs(dbTransactions)
     ]);
 
-    const stats = result.length > 0 ? result[0] : { totalRevenue: 0, totalExpenses: 0 };
-    const totalProfit = stats.totalRevenue - stats.totalExpenses;
-    const profitMargin = stats.totalRevenue > 0 ? (totalProfit / stats.totalRevenue) * 100 : 0;
+    const dailyData: Record<string, { revenue: number, expense: number }> = {};
+
+    orders.filter((o: any) => o.status === 'completed' && !o.isArchived).forEach((o: any) => {
+      const date = new Date(o.created_at).toISOString().split('T')[0];
+      if (!dailyData[date]) dailyData[date] = { revenue: 0, expense: 0 };
+      dailyData[date].revenue += o.total_amount;
+    });
+
+    transactions.filter((t: any) => t.status === 'completed' && !t.isArchived).forEach((t: any) => {
+      const date = new Date(t.created_at).toISOString().split('T')[0];
+      if (!dailyData[date]) dailyData[date] = { revenue: 0, expense: 0 };
+      if (t.type === 'income') dailyData[date].revenue += t.amount;
+      else dailyData[date].expense += t.amount;
+    });
+
+    const profitMargin = Object.entries(dailyData).map(([date, data]) => ({
+      date,
+      margin: data.revenue - data.expense
+    })).sort((a, b) => a.date.localeCompare(b.date));
 
     return NextResponse.json({ profitMargin });
   } catch (error) {
-    console.error('Error fetching profit margin:', error);
-    return NextResponse.json({ error: 'Failed to fetch profit margin' }, { status: 500 });
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 })
   }
 }

@@ -1,40 +1,27 @@
 import { auth } from '@/auth'
-import connectToDatabase from '@/lib/mongodb'
-import Transaction from '@/models/Transaction'
+import { dbOrders, dbTransactions, getAllDocs } from '@/lib/pouchdb'
 import { NextResponse } from 'next/server'
 
-export async function GET(request: Request) {
+export async function GET() {
   const session = await auth();
-  
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    await connectToDatabase();
-    const result = await Transaction.aggregate([
-      {
-        $match: {
-          user_uid: (session.user as any).id,
-          status: 'completed'
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          totalProfit: { 
-            $sum: { 
-              $cond: [ { $eq: ['$type', 'income'] }, '$amount', { $subtract: [0, '$amount'] } ] 
-            } 
-          }
-        }
-      }
+    const [orders, transactions] = await Promise.all([
+      getAllDocs(dbOrders),
+      getAllDocs(dbTransactions)
     ]);
 
-    const totalProfit = result.length > 0 ? result[0].totalProfit : 0;
-    return NextResponse.json({ totalProfit });
+    const totalRevenue = orders
+      .filter((o: any) => o.status === 'completed' && !o.isArchived)
+      .reduce((sum: number, o: any) => sum + o.total_amount, 0);
+
+    const totalExpenses = transactions
+      .filter((t: any) => t.type === 'expense' && t.status === 'completed' && !t.isArchived)
+      .reduce((sum: number, t: any) => sum + t.amount, 0);
+
+    return NextResponse.json({ totalProfit: totalRevenue - totalExpenses });
   } catch (error) {
-    console.error('Error fetching total profit:', error);
-    return NextResponse.json({ error: 'Failed to fetch total profit' }, { status: 500 });
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 })
   }
 }

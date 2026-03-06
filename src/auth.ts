@@ -1,14 +1,11 @@
 import NextAuth from "next-auth"
-import { MongoDBAdapter } from "@auth/mongodb-adapter"
-import clientPromise from "./lib/mongodb-raw"
 import { authConfig } from "./auth.config"
 import Credentials from "next-auth/providers/credentials"
-import connectToDatabase from "./lib/mongodb"
-import mongoose from "mongoose"
+import { dbUsers } from "./lib/pouchdb"
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
-  adapter: MongoDBAdapter(clientPromise),
+  session: { strategy: "jwt" }, // PouchDB doesn't use an adapter session
   providers: [
     Credentials({
       async authorize(credentials) {
@@ -28,24 +25,25 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           };
         }
 
-        await connectToDatabase();
-        // Dynamic User model definition to avoid schema issues in some environments
-        const User = mongoose.models.User || mongoose.model('User', new mongoose.Schema({
-            email: { type: String, unique: true },
-            password: { type: String },
-            name: { type: String },
-        }));
+        // 2. Check PouchDB Users
+        try {
+          const result = await dbUsers.find({
+            selector: { email: credentials.email }
+          });
 
-        const user = await User.findOne({ email: credentials.email });
+          const user: any = result.docs[0];
 
-        // IMPORTANT: In production, hash and compare!
-        if (user && user.password === credentials.password) {
-          return {
-            id: user._id.toString(),
-            email: user.email,
-            name: user.name,
-          };
+          if (user && user.password === credentials.password) {
+            return {
+              id: user._id,
+              email: user.email,
+              name: user.name,
+            };
+          }
+        } catch (error) {
+          console.error("Auth PouchDB error:", error);
         }
+        
         return null;
       }
     })

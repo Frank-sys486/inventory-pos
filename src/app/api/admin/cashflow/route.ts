@@ -1,36 +1,32 @@
 import { auth } from '@/auth'
-import connectToDatabase from '@/lib/mongodb'
-import Transaction from '@/models/Transaction'
+import { dbOrders, dbTransactions, getAllDocs } from '@/lib/pouchdb'
 import { NextResponse } from 'next/server'
 
-export async function GET(request: Request) {
+export async function GET() {
   const session = await auth();
-  
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    await connectToDatabase();
-    const transactionsData = await Transaction.find({
-      user_uid: (session.user as any).id,
-      status: 'completed'
-    }).sort({ created_at: 1 });
+    const [orders, transactions] = await Promise.all([
+      getAllDocs(dbOrders),
+      getAllDocs(dbTransactions)
+    ]);
 
-    const cashFlow = transactionsData?.reduce((acc, transaction) => {
-      const date = new Date(transaction.created_at).toISOString().split('T')[0];
-      const amount = transaction.type === 'income' ? transaction.amount : -transaction.amount;
-      if (acc[date]) {
-        acc[date] += amount;
-      } else {
-        acc[date] = amount;
-      }
-      return acc;
-    }, {} as Record<string, number>);
+    const cashFlow: Record<string, number> = {};
+
+    orders.filter((o: any) => o.status === 'completed' && !o.isArchived).forEach((o: any) => {
+      const date = new Date(o.created_at).toISOString().split('T')[0];
+      cashFlow[date] = (cashFlow[date] || 0) + o.total_amount;
+    });
+
+    transactions.filter((t: any) => t.status === 'completed' && !t.isArchived).forEach((t: any) => {
+      const date = new Date(t.created_at).toISOString().split('T')[0];
+      const amount = t.type === 'income' ? t.amount : -t.amount;
+      cashFlow[date] = (cashFlow[date] || 0) + amount;
+    });
 
     return NextResponse.json({ cashFlow });
   } catch (error) {
-    console.error('Error fetching cash flow data:', error);
-    return NextResponse.json({ error: 'Failed to fetch cash flow data' }, { status: 500 });
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 })
   }
 }

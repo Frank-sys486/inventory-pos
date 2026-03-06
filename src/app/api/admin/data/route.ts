@@ -1,11 +1,6 @@
 import { NextResponse } from "next/server";
-import connectMongoDB from "@/lib/mongodb";
-import Customer from "@/models/Customer";
-import Order from "@/models/Order";
-import Product from "@/models/Product";
-import Transaction from "@/models/Transaction";
+import { dbCustomers, dbProducts, dbOrders, dbTransactions, getAllDocs } from "@/lib/pouchdb";
 
-// Helper to convert JSON to CSV
 function jsonToCsv(items: any[]) {
   if (items.length === 0) return "";
   const header = Object.keys(items[0]).join(",");
@@ -21,40 +16,37 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const type = searchParams.get("type");
 
-  await connectMongoDB();
-
   let data: any[] = [];
-  let filename = "export.csv";
+  let filename = `${type || 'export'}.csv`;
 
-  switch (type) {
-    case "customers":
-      data = await Customer.find({}).lean();
-      filename = "customers.csv";
-      break;
-    case "products":
-      data = await Product.find({}).lean();
-      filename = "products.csv";
-      break;
-    case "orders":
-      data = await Order.find({}).lean();
-      filename = "orders.csv";
-      break;
-    case "transactions":
-      data = await Transaction.find({}).lean();
-      filename = "transactions.csv";
-      break;
-    default:
-      return NextResponse.json({ error: "Invalid type" }, { status: 400 });
+  try {
+    switch (type) {
+      case "customers":
+        data = await getAllDocs(dbCustomers);
+        break;
+      case "products":
+        data = await getAllDocs(dbProducts);
+        break;
+      case "orders":
+        data = await getAllDocs(dbOrders);
+        break;
+      case "transactions":
+        data = await getAllDocs(dbTransactions);
+        break;
+      default:
+        return NextResponse.json({ error: "Invalid type" }, { status: 400 });
+    }
+
+    const csv = jsonToCsv(data);
+    return new NextResponse(csv, {
+      headers: {
+        "Content-Type": "text/csv",
+        "Content-Disposition": `attachment; filename=${filename}`,
+      },
+    });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
-
-  const csv = jsonToCsv(data);
-
-  return new NextResponse(csv, {
-    headers: {
-      "Content-Type": "text/csv",
-      "Content-Disposition": `attachment; filename=${filename}`,
-    },
-  });
 }
 
 export async function POST(req: Request) {
@@ -71,28 +63,27 @@ export async function POST(req: Request) {
     const dataRows = rows.slice(1).filter(row => row.length === headers.length);
 
     const json = dataRows.map(row => {
-      const obj: any = {};
+      const obj: any = {
+        _id: new Date().getTime().toString() + Math.random().toString(36).substring(7),
+        isArchived: false,
+        created_at: new Date()
+      };
       headers.forEach((header, i) => {
         const rawVal = row[i].trim().replace(/^"|"$/g, '');
-        // Basic type conversion
         const numVal = Number(rawVal);
         obj[header] = (!isNaN(numVal) && rawVal !== "") ? numVal : rawVal;
       });
       return obj;
     });
 
-    await connectMongoDB();
-
+    let targetDb;
     switch (type) {
-      case "products":
-        await Product.insertMany(json);
-        break;
-      case "customers":
-        await Customer.insertMany(json);
-        break;
-      // Add other cases as needed
+      case "products": targetDb = dbProducts; break;
+      case "customers": targetDb = dbCustomers; break;
+      default: return NextResponse.json({ error: "Cannot import into this collection" }, { status: 400 });
     }
 
+    await targetDb.bulkDocs(json);
     return NextResponse.json({ message: `Successfully imported ${json.length} items` });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
