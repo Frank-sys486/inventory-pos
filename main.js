@@ -61,8 +61,12 @@ async function createWindow() {
     webPreferences: { nodeIntegration: false, contextIsolation: true },
   });
 
-  // Open DevTools immediately to see errors
-  win.webContents.openDevTools();
+  const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+
+  if (isDev) {
+    // Open DevTools in development mode
+    win.webContents.openDevTools();
+  }
 
   const currentHWID = getHWID();
   const allowedHWID = "00000000-0000-0000-0000-309C232230F0";
