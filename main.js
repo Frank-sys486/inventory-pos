@@ -85,10 +85,24 @@ async function createWindow() {
   const currentHWID = getHWID();
   const allowedHWID = "00000000-0000-0000-0000-309C232230F0";
 
+  // Diagnostics for .env
+  const envDir = app.isPackaged ? process.resourcesPath : __dirname;
+  const envPath = path.join(envDir, '.env');
+  const envExists = fs.existsSync(envPath);
+  const envStatus = envExists ? "FOUND" : "MISSING";
+  const authSecretStatus = process.env.AUTH_SECRET ? "LOADED" : "NOT_FOUND";
+
   if (allowedHWID && currentHWID !== allowedHWID) {
     log(`HWID Mismatch: Detected [${currentHWID}] expected [${allowedHWID}]`);
+    log(`Env Diagnostics: Path [${envPath}] | Status [${envStatus}] | AuthSecret [${authSecretStatus}]`);
+    
     win.loadFile(path.join(__dirname, 'unauthorized.html'), {
-      query: { hwid: currentHWID }
+      query: { 
+        hwid: currentHWID,
+        envPath: envPath,
+        envStatus: envStatus,
+        authStatus: authSecretStatus
+      }
     });
     return;
   }
