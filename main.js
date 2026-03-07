@@ -52,7 +52,12 @@ async function startServer() {
     return new Promise((resolve, reject) => {
       server.listen(0, '127.0.0.1', () => {
         const { port } = server.address();
-        log(`Server active on port: ${port}`);
+        const url = `http://127.0.0.1:${port}`;
+        
+        // CRITICAL: Update NEXTAUTH_URL to match the dynamic port
+        process.env.NEXTAUTH_URL = url;
+        
+        log(`Server active on: ${url}`);
         resolve(port);
       });
       server.on('error', reject);
