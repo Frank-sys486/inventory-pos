@@ -4,6 +4,9 @@
   "description": "FinOpenPOS Professional Management System",
   "author": "Frank Borromeo",
   "private": true,
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "main": "main.js",
   "scripts": {
     "dev": "next dev",
