@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, screen } = require('electron');
 const path = require('path');
 const { execSync } = require('child_process');
 const http = require('http');
@@ -21,9 +21,7 @@ process.env.DATA_PATH = dataPath;
 const logPath = path.join(userDataPath, 'pos-debug.log');
 function log(msg) {
   const line = `[${new Date().toISOString()}] ${msg}\n`;
-  try {
-    fs.appendFileSync(logPath, line);
-  } catch (e) {}
+  try { fs.appendFileSync(logPath, line); } catch (e) {}
   console.log(msg);
 }
 
@@ -31,17 +29,21 @@ function log(msg) {
 log(`Loading Environment from: ${envDir}`);
 loadEnvConfig(envDir);
 
-const startServer = async () => {
+const startServer = async (win) => {
   log("Initializing Next.js engine...");
+  win.webContents.executeJavaScript(`console.log("ENGINE: Starting...")`);
+  
   try {
     const next = require('next');
     
-    // Use app.asar.unpacked if available, otherwise use __dirname
+    // Use app.asar.unpacked if available, otherwise use baseDir
+    // Next.js MUST run from a real filesystem (unpacked) in production
     const dir = isPackaged 
       ? baseDir.replace('app.asar', 'app.asar.unpacked') 
       : baseDir;
 
-    log(`Next.js engine will run from: ${dir}`);
+    log(`Next.js engine root: ${dir}`);
+    win.webContents.executeJavaScript(`console.log("ENGINE ROOT: ${dir.replace(/\\/g, '/')}")`);
     
     const dev = false;
     const hostname = '127.0.0.1';
@@ -51,13 +53,13 @@ const startServer = async () => {
 
     await nextApp.prepare();
     log("Next.js prepare() successful.");
+    win.webContents.executeJavaScript(`console.log("ENGINE: Prepare successful")`);
     
     const server = http.createServer((req, res) => {
       handler(req, res);
     });
 
     return new Promise((resolve) => {
-      // Listen on 127.0.0.1, port 0 for dynamic available port
       server.listen(0, '127.0.0.1', () => {
         const { port } = server.address();
         log(`Server listening on http://127.0.0.1:${port}`);
@@ -67,6 +69,7 @@ const startServer = async () => {
   } catch (err) {
     log(`CRITICAL ERROR starting server: ${err.message}`);
     log(err.stack);
+    win.webContents.executeJavaScript(`console.error("ENGINE ERROR: ${err.message}")`);
     return null;
   }
 };
@@ -77,7 +80,6 @@ function getHWID() {
       return execSync('powershell.exe -NoProfile -Command "(Get-CimInstance Win32_ComputerSystemProduct).UUID"').toString().trim();
     }
     if (process.platform === "darwin") {
-      // More robust Mac UUID retrieval
       return execSync("ioreg -rd1 -c IOPlatformExpertDevice | grep -E 'IOPlatformUUID' | awk '{print $3}' | sed 's/\"//g'").toString().trim();
     }
     return "unknown";
@@ -93,16 +95,11 @@ async function createWindow() {
     height: 800,
     title: "FinOpenPOS",
     autoHideMenuBar: false,
-    show: false, // Don't show until ready or error
     backgroundColor: '#111111',
     webPreferences: { nodeIntegration: false, contextIsolation: true },
   });
 
-  // Show window as soon as it's ready to prevent black screen
-  win.once('ready-to-show', () => {
-    win.show();
-  });
-
+  // Open DevTools immediately if requested
   const isDev = !isPackaged || process.env.NODE_ENV === 'development' || process.env.DEVELOPER_MODE === 'true';
   if (isDev) {
     win.webContents.openDevTools();
@@ -114,29 +111,28 @@ async function createWindow() {
   
   const envPath = path.join(envDir, '.env');
   const envExists = fs.existsSync(envPath);
-  const envStatus = envExists ? "FOUND" : "MISSING";
   const authSecretStatus = process.env.AUTH_SECRET ? "LOADED" : "NOT_FOUND";
 
   log(`HWID Check: Current [${currentHWID}] | Allowed [${allowedHWID}]`);
 
-  if (allowedHWID && currentHWID !== allowedHWID) {
+  if (allowedHWID !== "DEVELOPMENT_MODE" && currentHWID !== allowedHWID) {
     log(`HWID Mismatch. Redirecting to unauthorized page.`);
     win.loadFile(path.join(baseDir, 'unauthorized.html'), {
       query: { 
         hwid: currentHWID,
         expectedHwid: allowedHWID,
         envPath: envPath,
-        envStatus: envStatus,
+        envStatus: envExists ? "FOUND" : "MISSING",
         authStatus: authSecretStatus
       }
     });
     return;
   }
 
-  // Splash Screen
-  win.loadURL('data:text/html,<body style="background:#111;color:white;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;margin:0"><div><h1 style="text-align:center">FinOpenPOS</h1><p style="text-align:center">Initializing Engine...</p></div></body>');
+  // Show Splash Screen
+  win.loadURL('data:text/html,<body style="background:#111;color:white;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;margin:0"><div><h1 style="text-align:center">FinOpenPOS</h1><p style="text-align:center" id="msg">Initializing Engine...</p><p style="font-size:10px;opacity:0.3;text-align:center">Check Console (F12) for details</p></div></body>');
 
-  const port = await startServer();
+  const port = await startServer(win);
   
   if (!port) {
     win.loadURL(`data:text/html,<body style="background:red;color:white;padding:20px;font-family:monospace"><h1>Server Failed to Start</h1><p>Check the log file at: ${logPath.replace(/\\/g, '/')}</p></body>`);
@@ -147,12 +143,17 @@ async function createWindow() {
   let attempts = 0;
   const poll = () => {
     attempts++;
-    log(`Polling server at http://127.0.0.1:${port}/login (Attempt ${attempts})...`);
+    const targetUrl = `http://127.0.0.1:${port}/login`;
+    log(`Polling server at ${targetUrl} (Attempt ${attempts})...`);
+    win.webContents.executeJavaScript(`console.log("POLLING: ${targetUrl} (Attempt ${attempts})")`);
     
-    const request = http.get(`http://127.0.0.1:${port}/login`, (res) => {
+    const request = http.get(targetUrl, (res) => {
       log(`Server responded with status: ${res.statusCode}`);
+      win.webContents.executeJavaScript(`console.log("SERVER RESPONSE: ${res.statusCode}")`);
+      
       if (res.statusCode === 200 || res.statusCode === 302) {
-        win.loadURL(`http://127.0.0.1:${port}/login`);
+        log(`Success! Loading ${targetUrl}`);
+        win.loadURL(targetUrl);
       } else {
         setTimeout(poll, 1000);
       }
@@ -162,7 +163,7 @@ async function createWindow() {
       log(`Poll error: ${e.message}`);
       if (attempts > 60) {
         log("Server poll timed out after 60 seconds.");
-        win.loadURL('data:text/html,<body style="background:orange;color:white;padding:20px"><h1>Timeout</h1><p>The server is taking too long to start. Please check the logs.</p></body>');
+        win.loadURL('data:text/html,<body style="background:orange;color:white;padding:20px"><h1>Timeout</h1><p>The server is taking too long to start. Please check the console (F12).</p></body>');
       } else {
         setTimeout(poll, 1000);
       }
