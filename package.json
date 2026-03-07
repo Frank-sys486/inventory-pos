@@ -11,7 +11,8 @@
     "start": "next start",
     "lint": "next lint",
     "electron-dev": "electron .",
-    "build-exe": "next build && electron-builder"
+    "build-exe": "next build && electron-builder",
+    "build-win": "next build && electron-builder --win"
   },
   "build": {
     "appId": "com.finopenpos.app",
@@ -20,7 +21,15 @@
       "output": "dist"
     },
     "win": {
-      "target": "portable"
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "${productName}_Setup.exe"
     },
     "portable": {
       "artifactName": "${productName}_Standalone.exe"
