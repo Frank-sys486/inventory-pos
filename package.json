@@ -39,7 +39,11 @@
     "extraResources": [
       ".env"
     ],
-    "asar": true
+    "asar": true,
+    "asarUnpack": [
+      ".next/**/*",
+      "node_modules/**/*"
+    ]
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.1",

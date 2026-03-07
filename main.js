@@ -35,12 +35,18 @@ const startServer = async () => {
   log("Initializing Next.js engine...");
   try {
     const next = require('next');
+    
+    // Use app.asar.unpacked if available, otherwise use __dirname
+    const dir = isPackaged 
+      ? baseDir.replace('app.asar', 'app.asar.unpacked') 
+      : baseDir;
+
+    log(`Next.js engine will run from: ${dir}`);
+    
     const dev = false;
-    const hostname = '127.0.0.1'; // Use IP instead of localhost for Mac reliability
+    const hostname = '127.0.0.1';
     
-    log(`Next.js App Directory: ${baseDir}`);
-    
-    const nextApp = next({ dev, hostname, dir: baseDir });
+    const nextApp = next({ dev, hostname, dir });
     const handler = nextApp.getRequestHandler();
 
     await nextApp.prepare();
