@@ -8,7 +8,7 @@ import { formatCurrency } from '@/lib/utils';
 import { Loader2Icon } from 'lucide-react';
 
 type Order = {
-  id: string;
+  _id: string;
   status: 'completed' | 'pending' | 'cancelled';
   created_at: string;
   total_amount: number;
@@ -83,7 +83,7 @@ export default function OrderDetailsPage({ params }: { params: { orderId: string
       <Card>
         <CardHeader>
           <CardTitle className="flex justify-between items-center">
-            <span>Order #{order.id.substring(0, 8)}...</span>
+            <span>Order #{order._id ? order._id.substring(0, 8) : 'N/A'}...</span>
             <Badge variant={order.status === 'completed' ? 'default' : 'secondary'}>
               {order.status}
             </Badge>
@@ -113,7 +113,7 @@ export default function OrderDetailsPage({ params }: { params: { orderId: string
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {order.items.map((item, index) => (
+                {order.items && order.items.map((item, index) => (
                   <TableRow key={index}>
                     <TableCell>{item.name}</TableCell>
                     <TableCell className="text-center">{item.quantity}</TableCell>

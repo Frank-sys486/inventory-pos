@@ -65,7 +65,7 @@ import Link from "next/link";
 import { formatCurrency } from "@/lib/utils";
 
 type Order = {
-  id: string
+  _id: string
   customer_id: string
   total_amount: number
   status: 'completed' | 'pending' | 'cancelled'
@@ -154,7 +154,7 @@ export default function OrdersPage() {
       }
       return (
         (order.customer && order.customer.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        order.id.toString().includes(searchTerm)
+        (order._id && order._id.toString().includes(searchTerm))
       );
     });
   }, [orders, filters.status, searchTerm]);
@@ -244,10 +244,10 @@ export default function OrdersPage() {
         id: selectedOrderId,
         total_amount: parseFloat(newOrderTotal),
         status: newOrderStatus,
-        created_at: orders.find(o => o.id === selectedOrderId)?.created_at, // Preserve the original created_at
+        created_at: orders.find(o => o._id === selectedOrderId)?.created_at, // Preserve the original created_at
       };
       const response = await fetch(`/api/orders/${selectedOrderId}`, {
-        method: "PUT",
+        method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
@@ -259,7 +259,7 @@ export default function OrdersPage() {
       }
 
       const updatedOrderData = await response.json();
-      setOrders(orders.map((o) => (o.id === updatedOrderData.id ? updatedOrderData : o)));
+      setOrders(orders.map((o) => (o._id === updatedOrderData._id ? updatedOrderData : o)));
       setIsEditOrderDialogOpen(false);
       resetSelectedOrder();
     } catch (error) {
@@ -270,7 +270,7 @@ export default function OrdersPage() {
   const handleDeleteOrder = useCallback(async () => {
     if (!orderToDelete) return;
     try {
-      const response = await fetch(`/api/orders/${orderToDelete.id}`, {
+      const response = await fetch(`/api/orders/${orderToDelete._id}`, {
         method: "DELETE",
       });
 
@@ -278,7 +278,7 @@ export default function OrdersPage() {
         throw new Error("Error deleting order");
       }
 
-      setOrders(orders.filter((o) => o.id !== orderToDelete.id));
+      setOrders(orders.filter((o) => o._id !== orderToDelete._id));
       setIsDeleteConfirmationOpen(false);
       setOrderToDelete(null);
     } catch (error) {
@@ -391,8 +391,8 @@ export default function OrdersPage() {
             </TableHeader>
             <TableBody>
               {filteredOrders.map((order) => (
-                <TableRow key={order.id}>
-                  <TableCell>{order.id}</TableCell>
+                <TableRow key={order._id}>
+                  <TableCell>{order._id}</TableCell>
                   <TableCell>{order.customer ? order.customer.name : 'N/A'}</TableCell>
                   <TableCell>{formatCurrency(order.total_amount)}</TableCell>
                   <TableCell>{order.status}</TableCell>
@@ -403,7 +403,7 @@ export default function OrdersPage() {
                         size="icon"
                         variant="ghost"
                         onClick={() => {
-                          setSelectedOrderId(order.id);
+                          setSelectedOrderId(order._id);
                           setNewOrderCustomerName(order.customer ? order.customer.name : "");
                           setNewOrderTotal(order.total_amount.toString());
                           setNewOrderStatus(order.status);
@@ -424,7 +424,7 @@ export default function OrdersPage() {
                         <Trash2 className="w-4 h-4" />
                         <span className="sr-only">Delete</span>
                       </Button>
-                      <Link href={`/admin/orders/${order.id}`} prefetch={false}>
+                      <Link href={`/admin/orders/${order._id}`} prefetch={false}>
                         <Button size="icon" variant="ghost">
                           <EyeIcon className="w-4 h-4" />
                           <span className="sr-only">View</span>
