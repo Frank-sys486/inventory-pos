@@ -14,8 +14,9 @@
             Please contact your administrator for assistance.
         </p>
         <div style="margin-top: 20px; padding: 15px; background: rgba(0,0,0,0.3); border-radius: 8px; font-family: monospace; font-size: 13px; color: #fecaca; text-align: left; border: 1px solid rgba(255,255,255,0.1);">
-            <div style="margin-bottom: 5px;"><strong>HWID:</strong> <span id="hwid-display">Loading...</span></div>
-            <div style="margin-bottom: 5px;"><strong>ENV PATH:</strong> <span id="env-path">Loading...</span></div>
+            <div style="margin-bottom: 5px;"><strong>YOUR HWID:</strong> <span id="hwid-display">Loading...</span></div>
+            <div style="margin-bottom: 10px;"><strong>EXPECTED:</strong> <span id="expected-hwid" style="color: #60a5fa;">Loading...</span></div>
+            <div style="margin-bottom: 5px; font-size: 11px; opacity: 0.7;"><strong>ENV PATH:</strong> <span id="env-path">Loading...</span></div>
             <div style="margin-bottom: 5px;"><strong>ENV FILE:</strong> <span id="env-status" style="font-weight: bold;">...</span></div>
             <div><strong>AUTH_SECRET:</strong> <span id="auth-status" style="font-weight: bold;">...</span></div>
         </div>
@@ -26,6 +27,10 @@
         // Display HWID
         const hwid = urlParams.get('hwid');
         document.getElementById('hwid-display').textContent = hwid || "Not Detected";
+
+        // Display Expected HWID
+        const expectedHwid = urlParams.get('expectedHwid');
+        document.getElementById('expected-hwid').textContent = expectedHwid || "Not Set";
 
         // Display Env Path
         const envPath = urlParams.get('envPath');

@@ -75,22 +75,29 @@ async function createWindow() {
     webPreferences: { nodeIntegration: false, contextIsolation: true },
   });
 
+  // 1. Initialize Environment immediately
+  const { loadEnvConfig } = require('@next/env');
+  const envDir = app.isPackaged ? process.resourcesPath : __dirname;
+  const envPath = path.join(envDir, '.env');
+  
+  log(`Loading Environment from: ${envDir}`);
+  loadEnvConfig(envDir);
+
+  // 2. Run Diagnostics
+  const currentHWID = getHWID();
+  const envExists = fs.existsSync(envPath);
+  const envStatus = envExists ? "FOUND" : "MISSING";
+  
+  // Prefer HWID from .env, fallback to hardcoded
+  const allowedHWID = process.env.ALLOWED_HWID || "00000000-0000-0000-0000-309C232230F0";
+  const authSecretStatus = process.env.AUTH_SECRET ? "LOADED" : "NOT_FOUND";
+
   const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
   if (isDev) {
     // Open DevTools in development mode
     win.webContents.openDevTools();
   }
-
-  const currentHWID = getHWID();
-  const allowedHWID = "00000000-0000-0000-0000-309C232230F0";
-
-  // Diagnostics for .env
-  const envDir = app.isPackaged ? process.resourcesPath : __dirname;
-  const envPath = path.join(envDir, '.env');
-  const envExists = fs.existsSync(envPath);
-  const envStatus = envExists ? "FOUND" : "MISSING";
-  const authSecretStatus = process.env.AUTH_SECRET ? "LOADED" : "NOT_FOUND";
 
   if (allowedHWID && currentHWID !== allowedHWID) {
     log(`HWID Mismatch: Detected [${currentHWID}] expected [${allowedHWID}]`);
@@ -99,6 +106,7 @@ async function createWindow() {
     win.loadFile(path.join(__dirname, 'unauthorized.html'), {
       query: { 
         hwid: currentHWID,
+        expectedHwid: allowedHWID,
         envPath: envPath,
         envStatus: envStatus,
         authStatus: authSecretStatus
