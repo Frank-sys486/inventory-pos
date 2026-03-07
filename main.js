@@ -97,7 +97,7 @@ async function createWindow() {
     win.show();
   });
 
-  const isDev = !isPackaged || process.env.NODE_ENV === 'development';
+  const isDev = !isPackaged || process.env.NODE_ENV === 'development' || process.env.DEVELOPER_MODE === 'true';
   if (isDev) {
     win.webContents.openDevTools();
   }
