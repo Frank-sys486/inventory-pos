@@ -16,11 +16,14 @@ const startServer = async () => {
   log("Initializing Next.js engine...");
   try {
     const next = require('next');
+    const { loadEnvConfig } = require('@next/env');
     const dir = __dirname;
     const dev = false;
     const hostname = 'localhost';
     const port = 3000;
     
+    // Explicitly load environment variables
+    loadEnvConfig(dir);
     log(`App Directory: ${dir}`);
     
     const nextApp = next({ dev, hostname, port, dir });

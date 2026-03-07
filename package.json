@@ -32,10 +32,10 @@
       ".next/**/*",
       "public/**/*",
       "node_modules/**/*",
+      ".env*",
       "!data/**/*",
       "!dist/**/*",
-      "!build_pack/**/*",
-      "!.env*"
+      "!build_pack/**/*"
     ],
     "asar": true
   },
