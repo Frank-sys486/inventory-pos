@@ -6,8 +6,9 @@ PouchDB.plugin(PouchDBFind);
 
 // Helper to get the correct database path
 const getDBPath = (name: string) => {
-  // In production/standalone, we want it in a 'data' folder next to the app
-  return path.join(process.cwd(), 'data', name);
+  // If a DATA_PATH is provided (by Electron), use it. Otherwise, use local data folder.
+  const baseDir = process.env.DATA_PATH || path.join(process.cwd(), 'data');
+  return path.join(baseDir, name);
 };
 
 // Initialize Databases

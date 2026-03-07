@@ -5,7 +5,14 @@ const http = require('http');
 const fs = require('fs');
 
 // Simple logger to file
-const logPath = path.join(app.getPath('userData'), 'pos-debug.log');
+const userDataPath = app.getPath('userData');
+const dataPath = path.join(userDataPath, 'data');
+if (!fs.existsSync(dataPath)) {
+  fs.mkdirSync(dataPath, { recursive: true });
+}
+process.env.DATA_PATH = dataPath;
+
+const logPath = path.join(userDataPath, 'pos-debug.log');
 function log(msg) {
   const line = `[${new Date().toISOString()}] ${msg}\n`;
   fs.appendFileSync(logPath, line);
