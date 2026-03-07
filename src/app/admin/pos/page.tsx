@@ -326,15 +326,16 @@ export default function POSPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          customerId: selectedCustomer.id,
+          customer_id: selectedCustomer.id,
           paymentMethod: paymentMethod.name,
-          products: selectedProducts.map((p) => ({
-            id: p.id,
+          items: selectedProducts.map((p) => ({
+            product_id: p.id,
             name: p.name,
             quantity: p.quantity,
             price: p.price,
           })),
-          total,
+          total_amount: total,
+          status: 'completed'
         }),
       });
 

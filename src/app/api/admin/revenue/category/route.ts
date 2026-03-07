@@ -13,9 +13,12 @@ export async function GET() {
     orders
       .filter((o: any) => o.status === 'completed' && !o.isArchived)
       .forEach((o: any) => {
-        o.items.forEach((item: any) => {
+        const items = o.items || o.products || [];
+        items.forEach((item: any) => {
           const cat = item.category || "Uncategorized";
-          revenueByCategory[cat] = (revenueByCategory[cat] || 0) + (item.price * item.quantity);
+          const price = item.price || 0;
+          const quantity = item.quantity || 0;
+          revenueByCategory[cat] = (revenueByCategory[cat] || 0) + (price * quantity);
         });
       });
 

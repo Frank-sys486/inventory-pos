@@ -16,7 +16,8 @@ export async function GET() {
 
     orders.filter((o: any) => o.status === 'completed' && !o.isArchived).forEach((o: any) => {
       const date = new Date(o.created_at).toISOString().split('T')[0];
-      cashFlow[date] = (cashFlow[date] || 0) + o.total_amount;
+      const amount = o.total_amount || o.total || 0;
+      cashFlow[date] = (cashFlow[date] || 0) + amount;
     });
 
     transactions.filter((t: any) => t.status === 'completed' && !t.isArchived).forEach((t: any) => {

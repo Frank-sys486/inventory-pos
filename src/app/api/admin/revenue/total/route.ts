@@ -10,7 +10,7 @@ export async function GET() {
     const orders = await getAllDocs(dbOrders);
     const totalRevenue = orders
       .filter((o: any) => o.status === 'completed' && !o.isArchived)
-      .reduce((sum: number, o: any) => sum + o.total_amount, 0);
+      .reduce((sum: number, o: any) => sum + (o.total_amount || o.total || 0), 0);
 
     return NextResponse.json({ totalRevenue });
   } catch (error) {

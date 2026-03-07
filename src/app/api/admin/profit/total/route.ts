@@ -14,7 +14,7 @@ export async function GET() {
 
     const totalRevenue = orders
       .filter((o: any) => o.status === 'completed' && !o.isArchived)
-      .reduce((sum: number, o: any) => sum + o.total_amount, 0);
+      .reduce((sum: number, o: any) => sum + (o.total_amount || o.total || 0), 0);
 
     const totalExpenses = transactions
       .filter((t: any) => t.type === 'expense' && t.status === 'completed' && !t.isArchived)
