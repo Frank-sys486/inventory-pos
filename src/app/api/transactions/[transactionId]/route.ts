@@ -1,6 +1,5 @@
 import { auth } from '@/auth'
-import connectToDatabase from '@/lib/mongodb'
-import Transaction from '@/models/Transaction'
+import { dbTransactions } from '@/lib/pouchdb'
 import { NextResponse } from 'next/server'
 
 export async function GET(
@@ -8,25 +7,19 @@ export async function GET(
   { params }: { params: { transactionId: string } }
 ) {
   const session = await auth();
-  
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    await connectToDatabase();
-    const transaction = await Transaction.findOne({
-      _id: params.transactionId,
-      user_uid: (session.user as any).id
-    });
-
-    if (!transaction) {
-      return NextResponse.json({ error: 'Transaction not found' }, { status: 404 })
+    const doc: any = await dbTransactions.get(params.transactionId);
+    
+    // Verify user ownership
+    if (doc.user_uid !== (session.user as any).id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    return NextResponse.json(transaction)
+    return NextResponse.json(doc);
   } catch (error) {
-    return NextResponse.json({ error: (error as Error).message }, { status: 500 })
+    return NextResponse.json({ error: 'Transaction not found' }, { status: 404 });
   }
 }
 
@@ -35,28 +28,26 @@ export async function PATCH(
   { params }: { params: { transactionId: string } }
 ) {
   const session = await auth();
-  
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
     const updateData = await request.json();
-    await connectToDatabase();
-    
-    const transaction = await Transaction.findOneAndUpdate(
-      { _id: params.transactionId, user_uid: (session.user as any).id },
-      updateData,
-      { new: true }
-    );
+    const existing: any = await dbTransactions.get(params.transactionId);
 
-    if (!transaction) {
-      return NextResponse.json({ error: 'Transaction not found' }, { status: 404 })
+    // Verify user ownership
+    if (existing.user_uid !== (session.user as any).id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    
+    const updated = {
+      ...existing,
+      ...updateData,
+    };
 
-    return NextResponse.json(transaction)
+    const response = await dbTransactions.put(updated);
+    return NextResponse.json({ ...updated, _rev: response.rev });
   } catch (error) {
-    return NextResponse.json({ error: (error as Error).message }, { status: 500 })
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
 }
 
@@ -65,40 +56,27 @@ export async function DELETE(
   { params }: { params: { transactionId: string } }
 ) {
   const session = await auth();
-  
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const isDeveloperMode = process.env.DEVELOPER_MODE === 'true';
 
   try {
-    await connectToDatabase();
-    
-    let transaction;
+    const existing: any = await dbTransactions.get(params.transactionId);
+
+    // Verify user ownership
+    if (existing.user_uid !== (session.user as any).id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     if (isDeveloperMode) {
-      // Permanent hard delete
-      transaction = await Transaction.findOneAndDelete({
-        _id: params.transactionId,
-        user_uid: (session.user as any).id
-      });
+      await dbTransactions.remove(existing);
+      return NextResponse.json({ message: 'Transaction permanently deleted' });
     } else {
-      // Soft delete / Archive
-      transaction = await Transaction.findOneAndUpdate(
-        { _id: params.transactionId, user_uid: (session.user as any).id },
-        { isArchived: true },
-        { new: true }
-      );
+      existing.isArchived = true;
+      await dbTransactions.put(existing);
+      return NextResponse.json({ message: 'Transaction archived' });
     }
-
-    if (!transaction) {
-      return NextResponse.json({ error: 'Transaction not found' }, { status: 404 })
-    }
-
-    return NextResponse.json({ 
-      message: isDeveloperMode ? 'Transaction permanently deleted' : 'Transaction archived' 
-    })
   } catch (error) {
-    return NextResponse.json({ error: (error as Error).message }, { status: 500 })
+    return NextResponse.json({ error: 'Transaction not found' }, { status: 404 });
   }
 }

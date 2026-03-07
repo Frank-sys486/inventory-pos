@@ -1,6 +1,5 @@
 import { auth } from '@/auth'
-import connectToDatabase from '@/lib/mongodb'
-import Order from '@/models/Order'
+import { dbOrders } from '@/lib/pouchdb'
 import { NextResponse } from 'next/server'
 
 export async function GET(
@@ -8,32 +7,19 @@ export async function GET(
   { params }: { params: { orderId: string } }
 ) {
   const session = await auth();
-  
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    await connectToDatabase();
-    const orderData = await Order.findOne({
-      _id: params.orderId,
-      user_uid: (session.user as any).id
-    }).populate('customer_id', 'name email phone');
-
-    if (!orderData) {
-      return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+    const doc: any = await dbOrders.get(params.orderId);
+    
+    // Verify user ownership
+    if (doc.user_uid !== (session.user as any).id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const orderObject = orderData.toObject();
-    const order = {
-      ...orderObject,
-      id: orderObject._id.toString(),
-      customer: orderObject.customer_id
-    };
-
-    return NextResponse.json(order)
+    return NextResponse.json(doc);
   } catch (error) {
-    return NextResponse.json({ error: (error as Error).message }, { status: 500 })
+    return NextResponse.json({ error: 'Order not found' }, { status: 404 });
   }
 }
 
@@ -42,28 +28,26 @@ export async function PATCH(
   { params }: { params: { orderId: string } }
 ) {
   const session = await auth();
-  
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
     const updateData = await request.json();
-    await connectToDatabase();
-    
-    const order = await Order.findOneAndUpdate(
-      { _id: params.orderId, user_uid: (session.user as any).id },
-      updateData,
-      { new: true }
-    );
+    const existing: any = await dbOrders.get(params.orderId);
 
-    if (!order) {
-      return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+    // Verify user ownership
+    if (existing.user_uid !== (session.user as any).id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    
+    const updated = {
+      ...existing,
+      ...updateData,
+    };
 
-    return NextResponse.json(order)
+    const response = await dbOrders.put(updated);
+    return NextResponse.json({ ...updated, _rev: response.rev });
   } catch (error) {
-    return NextResponse.json({ error: (error as Error).message }, { status: 500 })
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
 }
 
@@ -72,24 +56,27 @@ export async function DELETE(
   { params }: { params: { orderId: string } }
 ) {
   const session = await auth();
-  
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const isDeveloperMode = process.env.DEVELOPER_MODE === 'true';
 
   try {
-    await connectToDatabase();
-    const order = await Order.findOneAndDelete({
-      _id: params.orderId,
-      user_uid: (session.user as any).id
-    });
+    const existing: any = await dbOrders.get(params.orderId);
 
-    if (!order) {
-      return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+    // Verify user ownership
+    if (existing.user_uid !== (session.user as any).id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    return NextResponse.json({ message: 'Order deleted' })
+    if (isDeveloperMode) {
+      await dbOrders.remove(existing);
+      return NextResponse.json({ message: 'Order permanently deleted' });
+    } else {
+      existing.isArchived = true;
+      await dbOrders.put(existing);
+      return NextResponse.json({ message: 'Order archived' });
+    }
   } catch (error) {
-    return NextResponse.json({ error: (error as Error).message }, { status: 500 })
+    return NextResponse.json({ error: 'Order not found' }, { status: 404 });
   }
 }

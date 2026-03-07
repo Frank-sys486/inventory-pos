@@ -1,6 +1,5 @@
 import { auth } from '@/auth'
-import connectToDatabase from '@/lib/mongodb'
-import Customer from '@/models/Customer'
+import { dbCustomers } from '@/lib/pouchdb'
 import { NextResponse } from 'next/server'
 
 export async function GET(
@@ -8,25 +7,19 @@ export async function GET(
   { params }: { params: { customerId: string } }
 ) {
   const session = await auth();
-  
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    await connectToDatabase();
-    const customer = await Customer.findOne({
-      _id: params.customerId,
-      user_uid: (session.user as any).id
-    });
-
-    if (!customer) {
-      return NextResponse.json({ error: 'Customer not found' }, { status: 404 })
+    const doc: any = await dbCustomers.get(params.customerId);
+    
+    // Verify user ownership
+    if (doc.user_uid !== (session.user as any).id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    return NextResponse.json(customer)
+    return NextResponse.json(doc);
   } catch (error) {
-    return NextResponse.json({ error: (error as Error).message }, { status: 500 })
+    return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
   }
 }
 
@@ -35,28 +28,26 @@ export async function PATCH(
   { params }: { params: { customerId: string } }
 ) {
   const session = await auth();
-  
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
     const updateData = await request.json();
-    await connectToDatabase();
-    
-    const customer = await Customer.findOneAndUpdate(
-      { _id: params.customerId, user_uid: (session.user as any).id },
-      updateData,
-      { new: true }
-    );
+    const existing: any = await dbCustomers.get(params.customerId);
 
-    if (!customer) {
-      return NextResponse.json({ error: 'Customer not found' }, { status: 404 })
+    // Verify user ownership
+    if (existing.user_uid !== (session.user as any).id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    
+    const updated = {
+      ...existing,
+      ...updateData,
+    };
 
-    return NextResponse.json(customer)
+    const response = await dbCustomers.put(updated);
+    return NextResponse.json({ ...updated, _rev: response.rev });
   } catch (error) {
-    return NextResponse.json({ error: (error as Error).message }, { status: 500 })
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
 }
 
@@ -65,24 +56,27 @@ export async function DELETE(
   { params }: { params: { customerId: string } }
 ) {
   const session = await auth();
-  
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const isDeveloperMode = process.env.DEVELOPER_MODE === 'true';
 
   try {
-    await connectToDatabase();
-    const customer = await Customer.findOneAndDelete({
-      _id: params.customerId,
-      user_uid: (session.user as any).id
-    });
+    const existing: any = await dbCustomers.get(params.customerId);
 
-    if (!customer) {
-      return NextResponse.json({ error: 'Customer not found' }, { status: 404 })
+    // Verify user ownership
+    if (existing.user_uid !== (session.user as any).id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    return NextResponse.json({ message: 'Customer deleted' })
+    if (isDeveloperMode) {
+      await dbCustomers.remove(existing);
+      return NextResponse.json({ message: 'Customer permanently deleted' });
+    } else {
+      existing.isArchived = true;
+      await dbCustomers.put(existing);
+      return NextResponse.json({ message: 'Customer archived' });
+    }
   } catch (error) {
-    return NextResponse.json({ error: (error as Error).message }, { status: 500 })
+    return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
   }
 }

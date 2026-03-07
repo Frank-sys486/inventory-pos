@@ -8,7 +8,7 @@ export const authConfig = {
   },
   providers: [
     // We'll define providers here but the actual authorize function 
-    // that uses Mongoose will be in auth.ts (Node.js runtime)
+    // that uses PouchDB will be in auth.ts (Node.js runtime)
     Credentials({
         name: "Credentials",
         credentials: {
