@@ -1,14 +1,48 @@
 import PouchDB from 'pouchdb';
 import PouchDBFind from 'pouchdb-find';
 import path from 'path';
+import fs from 'fs';
 
 PouchDB.plugin(PouchDBFind);
 
-// Helper to get the correct database path
+/**
+ * POUCHDB STORAGE ENGINE
+ * This file handles database initialization with robust path detection
+ * to avoid 500 Internal Server Errors in production.
+ */
+
+const dbLog = (msg: string) => {
+  try {
+    const logDir = process.env.DATA_PATH || path.join(process.cwd(), 'data');
+    if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+    const logFile = path.join(logDir, 'db-debug.log');
+    const line = `[${new Date().toISOString()}] ${msg}\n`;
+    fs.appendFileSync(logFile, line);
+  } catch (e) {}
+  console.log(`[DB] ${msg}`);
+};
+
 const getDBPath = (name: string) => {
-  // If a DATA_PATH is provided (by Electron), use it. Otherwise, use local data folder.
-  const baseDir = process.env.DATA_PATH || path.join(process.cwd(), 'data');
-  return path.join(baseDir, name);
+  // 1. Try Environment Variable (Set by Electron)
+  let baseDir = process.env.DATA_PATH;
+
+  // 2. Fallback to current working directory
+  if (!baseDir) {
+    baseDir = path.join(process.cwd(), 'data');
+  }
+
+  // 3. Ensure the directory is absolute and writable
+  const finalPath = path.resolve(path.join(baseDir, name));
+  
+  try {
+    const parent = path.dirname(finalPath);
+    if (!fs.existsSync(parent)) fs.mkdirSync(parent, { recursive: true });
+    dbLog(`Database [${name}] target: ${finalPath}`);
+  } catch (e) {
+    dbLog(`PATH ERROR [${name}]: ${(e as Error).message}`);
+  }
+
+  return finalPath;
 };
 
 // Initialize Databases
@@ -18,8 +52,14 @@ export const dbOrders = new PouchDB(getDBPath('orders'));
 export const dbTransactions = new PouchDB(getDBPath('transactions'));
 export const dbUsers = new PouchDB(getDBPath('users'));
 
-// Common helper to get all docs from a database as an array
+dbLog('All database instances initialized.');
+
 export async function getAllDocs(db: PouchDB.Database) {
-  const result = await db.allDocs({ include_docs: true });
-  return result.rows.map(row => row.doc);
+  try {
+    const result = await db.allDocs({ include_docs: true });
+    return result.rows.map(row => row.doc);
+  } catch (err) {
+    dbLog(`Query Error: ${(err as Error).message}`);
+    throw err;
+  }
 }

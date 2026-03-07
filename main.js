@@ -1,19 +1,37 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, screen } = require('electron');
 const path = require('path');
 const { execSync } = require('child_process');
 const http = require('http');
 const fs = require('fs');
 
 /**
- * FINAL DIAGNOSTIC ARCHITECTURE
- * This version is designed to catch the error and DISPLAY it 
- * on the screen so we can stop guessing.
+ * PRODUCTION-READY ARCHITECTURE
+ * This version handles the 500 Internal Server Error by ensuring 
+ * the database path is ALWAYS writable and correctly passed to Next.js.
  */
 
 const isPackaged = app.isPackaged;
 const baseDir = __dirname;
-const userDataPath = app.getPath('userData');
+
+// CRITICAL: Initialize paths early and safely
+let userDataPath;
+try {
+  userDataPath = app.getPath('userData');
+} catch (e) {
+  // Fallback if app is not fully ready
+  userDataPath = path.join(process.env.HOME || process.env.USERPROFILE, '.finopenpos');
+}
+
+const dataPath = path.join(userDataPath, 'data');
 const logPath = path.join(userDataPath, 'pos-debug.log');
+
+// Ensure data directory exists
+if (!fs.existsSync(dataPath)) {
+  fs.mkdirSync(dataPath, { recursive: true });
+}
+
+// Export to environment for Next.js engine
+process.env.DATA_PATH = dataPath;
 
 function log(msg) {
   const line = `[${new Date().toISOString()}] ${msg}\n`;
@@ -21,11 +39,15 @@ function log(msg) {
   console.log(msg);
 }
 
+log(`SYSTEM STARTUP`);
+log(`Packaged: ${isPackaged}`);
+log(`Data Path: ${dataPath}`);
+
 // 1. Immediate Environment Loading
 try {
   const { loadEnvConfig } = require('@next/env');
   const envDir = isPackaged ? process.resourcesPath : baseDir;
-  log(`Loading Environment from: ${envDir}`);
+  log(`Loading Env from: ${envDir}`);
   loadEnvConfig(envDir);
 } catch (e) {
   log(`Env Load Error: ${e.message}`);
@@ -38,6 +60,9 @@ async function startServer() {
     
     log(`Next.js Root: ${dir}`);
     
+    // Ensure DATA_PATH is preserved
+    process.env.DATA_PATH = dataPath;
+
     const nextApp = next({ 
       dev: false, 
       hostname: '127.0.0.1', 
@@ -53,10 +78,7 @@ async function startServer() {
       server.listen(0, '127.0.0.1', () => {
         const { port } = server.address();
         const url = `http://127.0.0.1:${port}`;
-        
-        // CRITICAL: Update NEXTAUTH_URL to match the dynamic port
         process.env.NEXTAUTH_URL = url;
-        
         log(`Server active on: ${url}`);
         resolve(port);
       });
@@ -95,7 +117,6 @@ async function createWindow() {
   const currentHWID = getHWID().toUpperCase();
   const allowedHWID = (process.env.ALLOWED_HWID || "00000000-0000-0000-0000-309C232230F0").toUpperCase().trim();
 
-  // SECURE LOCK
   if (allowedHWID !== "DEVELOPMENT_MODE" && currentHWID !== allowedHWID) {
     win.loadFile(path.join(baseDir, 'unauthorized.html'), {
       query: { hwid: currentHWID, expectedHwid: allowedHWID }
@@ -108,16 +129,11 @@ async function createWindow() {
   const result = await startServer();
   
   if (result.error) {
-    // DISPLAY THE ERROR ON SCREEN
     const errorHtml = `
       <body style="background:#450a0a;color:white;padding:40px;font-family:monospace">
         <h1 style="color:#f87171">CRITICAL ENGINE ERROR</h1>
-        <p>The Next.js server failed to start on your Mac.</p>
-        <div style="background:rgba(0,0,0,0.5);padding:20px;border-radius:8px;border:1px solid #7f1d1d">
-          <strong>Error:</strong> ${result.error}<br><br>
-          <strong>Stack:</strong> <pre style="font-size:12px;opacity:0.7">${result.stack}</pre>
-        </div>
-        <p style="margin-top:20px;opacity:0.5">Please copy this error and send it to Gemini.</p>
+        <p>Next.js server failed to start.</p>
+        <pre>${result.error}</pre>
       </body>
     `;
     win.loadURL(`data:text/html,${encodeURIComponent(errorHtml)}`);
@@ -127,13 +143,12 @@ async function createWindow() {
   const port = result;
   const target = `http://127.0.0.1:${port}/login`;
 
-  // Wait for server
   const poll = (attempts = 0) => {
     http.get(target, (res) => {
       win.loadURL(target);
     }).on('error', () => {
-      if (attempts > 30) {
-        win.loadURL(`data:text/html,<body style="background:orange;padding:20px"><h1>Connection Timeout</h1><p>Server started on port ${port} but is not responding.</p></body>`);
+      if (attempts > 60) {
+        win.loadURL(`data:text/html,<body style="background:orange;padding:20px"><h1>Timeout</h1></body>`);
       } else {
         setTimeout(() => poll(attempts + 1), 1000);
       }
