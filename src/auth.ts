@@ -3,9 +3,14 @@ import { authConfig } from "./auth.config"
 import Credentials from "next-auth/providers/credentials"
 import { dbUsers } from "./lib/pouchdb"
 
+// CRITICAL: Force set AUTH_SECRET if missing to prevent MissingSecret error
+if (!process.env.AUTH_SECRET) {
+  process.env.AUTH_SECRET = "finopenpos-secure-fallback-secret-12345-abcde";
+}
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
-  secret: process.env.AUTH_SECRET || "finopenpos-secure-fallback-secret-12345",
+  secret: process.env.AUTH_SECRET,
   session: { strategy: "jwt" }, // PouchDB doesn't use an adapter session
   providers: [
     Credentials({

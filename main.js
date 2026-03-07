@@ -53,9 +53,8 @@ try {
   // Safety check for Auth Secret
   if (!process.env.AUTH_SECRET) {
     log("WARNING: AUTH_SECRET missing. Setting temporary fallback.");
-    process.env.AUTH_SECRET = "finopenpos-temp-secret-999";
-  }
-} catch (e) {
+    process.env.AUTH_SECRET = "finopenpos-secure-fallback-secret-12345-abcde";
+  }} catch (e) {
   log(`Env Load Error: ${e.message}`);
 }
 
