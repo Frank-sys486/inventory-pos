@@ -43,11 +43,13 @@ try {
     fs.writeFileSync('launcher_temp.js', launcherContent);
 
     // Compile the temp file
-    execSync('npx pkg launcher_temp.js --targets node18-win-x64 --output Start_FinOpenPOS.exe');
+    console.log("Compiling binary (using node18 for compatibility)...");
+    execSync('npx pkg launcher_temp.js --targets node18-win --output Start_FinOpenPOS.exe');
     fs.unlinkSync('launcher_temp.js'); // Clean up temp file
     console.log("Binary compilation successful.");
 } catch (e) {
-    console.log(`Warning: Binary compilation failed: ${e.message}`);
+    console.log(`CRITICAL ERROR: Binary compilation failed: ${e.message}`);
+    process.exit(1);
 }
 
 // 4. List of EVERY essential file/folder for Next.js Standalone
@@ -59,7 +61,8 @@ const essentials = [
   'next.config.mjs',
   '.next',
   'node_modules',
-  'public'
+  'public',
+  'src' // CRITICAL: Database logic lives here
 ];
 
 console.log("Gathering all system components...");
