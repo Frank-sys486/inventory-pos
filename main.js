@@ -54,46 +54,50 @@ try {
   if (!process.env.AUTH_SECRET) {
     log("WARNING: AUTH_SECRET missing. Setting temporary fallback.");
     process.env.AUTH_SECRET = "finopenpos-secure-fallback-secret-12345-abcde";
-  }} catch (e) {
-  log(`Env Load Error: ${e.message}`);
-}
-
-async function startServer() {
-  try {
-    const next = require('next');
-    const dir = isPackaged ? baseDir.replace('app.asar', 'app.asar.unpacked') : baseDir;
-    
-    log(`Next.js Root: ${dir}`);
-    
-    // Ensure DATA_PATH is preserved
-    process.env.DATA_PATH = dataPath;
-
-    const nextApp = next({ 
-      dev: false, 
-      hostname: '127.0.0.1', 
-      dir: dir 
-    });
-    
-    const handler = nextApp.getRequestHandler();
-    await nextApp.prepare();
-    
-    const server = http.createServer((req, res) => handler(req, res));
-
-    return new Promise((resolve, reject) => {
-      server.listen(0, '127.0.0.1', () => {
-        const { port } = server.address();
-        const url = `http://127.0.0.1:${port}`;
-        process.env.NEXTAUTH_URL = url;
-        log(`Server active on: ${url}`);
-        resolve(port);
-      });
-      server.on('error', reject);
-    });
-  } catch (err) {
-    return { error: err.message, stack: err.stack };
   }
-}
 
+  // CRITICAL: Force trust host for production dynamic ports
+  process.env.AUTH_TRUST_HOST = "true";
+  } catch (e) {
+  log(`Env Load Error: ${e.message}`);
+  }
+
+  async function startServer() {
+  try {
+  const next = require('next');
+  const dir = isPackaged ? baseDir.replace('app.asar', 'app.asar.unpacked') : baseDir;
+
+  log(`Next.js Root: ${dir}`);
+
+  // Ensure DATA_PATH and AUTH settings are preserved
+  process.env.DATA_PATH = dataPath;
+  process.env.AUTH_TRUST_HOST = "true";
+
+  const nextApp = next({ 
+    dev: false, 
+    hostname: 'localhost', 
+    dir: dir 
+  });
+
+  const handler = nextApp.getRequestHandler();
+  await nextApp.prepare();
+
+  const server = http.createServer((req, res) => handler(req, res));
+
+  return new Promise((resolve, reject) => {
+    server.listen(0, 'localhost', () => {
+      const { port } = server.address();
+      const url = `http://localhost:${port}`;
+      process.env.NEXTAUTH_URL = url;
+      log(`Server active on: ${url}`);
+      resolve(port);
+    });
+    server.on('error', reject);
+  });
+  } catch (err) {
+  return { error: err.message, stack: err.stack };
+  }
+  }
 function getHWID() {
   try {
     if (process.platform === "win32") {
@@ -115,8 +119,11 @@ async function createWindow() {
     webPreferences: { nodeIntegration: false, contextIsolation: true },
   });
 
-  if (process.env.DEVELOPER_MODE === 'true' || !isPackaged) {
+  // Open DevTools immediately if requested via .env or in dev mode
+  const isDevMode = process.env.DEVELOPER_MODE === 'true' || !isPackaged;
+  if (isDevMode) {
     win.webContents.openDevTools();
+    log("Developer Mode Active: Console Opened.");
   }
 
   const currentHWID = getHWID().toUpperCase();
@@ -146,7 +153,7 @@ async function createWindow() {
   }
 
   const port = result;
-  const target = `http://127.0.0.1:${port}/login`;
+  const target = `http://localhost:${port}/login`;
 
   const poll = (attempts = 0) => {
     http.get(target, (res) => {
