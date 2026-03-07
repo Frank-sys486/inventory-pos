@@ -47,8 +47,14 @@ function getHWID() {
     if (process.platform === "win32") {
       return execSync('powershell.exe -NoProfile -Command "(Get-CimInstance Win32_ComputerSystemProduct).UUID"').toString().trim();
     }
+    if (process.platform === "darwin") {
+      return execSync("ioreg -rd1 -c IOPlatformExpertDevice | grep -E 'IOPlatformUUID' | awk '{print $3}' | sed 's/\"//g'").toString().trim();
+    }
     return "unknown";
-  } catch (e) { return "error"; }
+  } catch (e) { 
+    log(`Error detecting HWID: ${e.message}`);
+    return "error"; 
+  }
 }
 
 async function createWindow() {

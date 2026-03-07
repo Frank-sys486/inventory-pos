@@ -7,17 +7,21 @@ function getHWID() {
             const output = execSync('powershell.exe -NoProfile -Command "(Get-CimInstance Win32_ComputerSystemProduct).UUID"').toString();
             return output.trim();
         } else if (process.platform === 'darwin') {
-            return execSync("ioreg -rd1 -c IOPlatformExpertDevice | grep IOPlatformUUID | awk '{print $3}' | sed 's/\"//g'").toString().trim();
+            // macOS: Using ioreg to get the IOPlatformUUID
+            return execSync("ioreg -rd1 -c IOPlatformExpertDevice | grep -E 'IOPlatformUUID' | awk '{print $3}' | sed 's/\"//g'").toString().trim();
         } else {
             return 'linux-unsupported';
         }
     } catch (e) {
-        return 'error-detecting-hwid';
+        return 'error-detecting-hwid: ' + e.message;
     }
 }
 
 console.log("\n========================================");
-console.log("YOUR UNIQUE HARDWARE ID:");
-console.log(getHWID());
+console.log("   FinOpenPOS - HARDWARE ID FINDER");
+console.log("========================================");
+console.log("\nYOUR UNIQUE HARDWARE ID IS:\n");
+console.log("  >>> " + getHWID() + " <<<");
+console.log("\n========================================");
+console.log("Copy this ID and paste it into main.js and launcher.js.");
 console.log("========================================\n");
-console.log("Copy this ID and paste it into your .env file as ALLOWED_HWID");
