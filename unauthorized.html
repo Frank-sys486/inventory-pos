@@ -13,6 +13,18 @@
         <p style="margin-top: 30px; font-size: 14px; opacity: 0.5;">
             Please contact your administrator for assistance.
         </p>
+        <div style="margin-top: 20px; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 4px; font-family: monospace; font-size: 14px; color: #fecaca;">
+            HWID: <span id="hwid-display">Loading...</span>
+        </div>
     </div>
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const hwid = urlParams.get('hwid');
+        if (hwid) {
+            document.getElementById('hwid-display').textContent = hwid;
+        } else {
+            document.getElementById('hwid-display').textContent = "Not Detected";
+        }
+    </script>
 </body>
 </html>

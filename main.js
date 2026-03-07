@@ -72,8 +72,10 @@ async function createWindow() {
   const allowedHWID = "00000000-0000-0000-0000-309C232230F0";
 
   if (allowedHWID && currentHWID !== allowedHWID) {
-    log("HWID Mismatch. Blocking access.");
-    win.loadFile(path.join(__dirname, 'unauthorized.html'));
+    log(`HWID Mismatch: Detected [${currentHWID}] expected [${allowedHWID}]`);
+    win.loadFile(path.join(__dirname, 'unauthorized.html'), {
+      query: { hwid: currentHWID }
+    });
     return;
   }
 
