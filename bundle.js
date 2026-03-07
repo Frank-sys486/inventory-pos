@@ -95,6 +95,6 @@ console.log("1. Open 'build_pack' and select ALL items.");
 console.log("2. Right-click -> Add to archive (WinRAR).");
 console.log("3. Check 'Create SFX archive'.");
 console.log("4. Advanced -> SFX Options -> Setup -> Run after extraction: Start_FinOpenPOS.exe");
-console.log("5. Modes -> Hide all.");
-console.log("6. Update -> Overwrite all files.");
+console.log("5. Modes -> Select 'Hide STARTUP window' (NOT 'Hide all').");
+console.log("6. Update -> Select 'Overwrite all files'.");
 console.log("7. Click OK. Your 1-file standalone is ready.");
