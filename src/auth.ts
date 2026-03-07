@@ -10,7 +10,7 @@ if (!process.env.AUTH_SECRET) {
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
-  secret: process.env.AUTH_SECRET,
+  secret: process.env.AUTH_SECRET || "finopenpos-secure-fallback-secret-12345-abcde",
   session: { strategy: "jwt" }, // PouchDB doesn't use an adapter session
   providers: [
     Credentials({
