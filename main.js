@@ -43,12 +43,18 @@ log(`SYSTEM STARTUP`);
 log(`Packaged: ${isPackaged}`);
 log(`Data Path: ${dataPath}`);
 
-// 1. Immediate Environment Loading
+// Load .env variables early
 try {
   const { loadEnvConfig } = require('@next/env');
   const envDir = isPackaged ? process.resourcesPath : baseDir;
-  log(`Loading Env from: ${envDir}`);
+  log(`Loading Environment from: ${envDir}`);
   loadEnvConfig(envDir);
+
+  // Safety check for Auth Secret
+  if (!process.env.AUTH_SECRET) {
+    log("WARNING: AUTH_SECRET missing. Setting temporary fallback.");
+    process.env.AUTH_SECRET = "finopenpos-temp-secret-999";
+  }
 } catch (e) {
   log(`Env Load Error: ${e.message}`);
 }
