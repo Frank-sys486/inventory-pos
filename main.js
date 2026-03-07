@@ -4,6 +4,12 @@ const { execSync } = require('child_process');
 const http = require('http');
 const fs = require('fs');
 
+// Initialize Environment immediately at the top level
+const { loadEnvConfig } = require('@next/env');
+const isPackaged = app.isPackaged;
+const baseDir = __dirname;
+const envDir = isPackaged ? process.resourcesPath : baseDir;
+
 // Simple logger to file
 const userDataPath = app.getPath('userData');
 const dataPath = path.join(userDataPath, 'data');
@@ -15,21 +21,26 @@ process.env.DATA_PATH = dataPath;
 const logPath = path.join(userDataPath, 'pos-debug.log');
 function log(msg) {
   const line = `[${new Date().toISOString()}] ${msg}\n`;
-  fs.appendFileSync(logPath, line);
+  try {
+    fs.appendFileSync(logPath, line);
+  } catch (e) {}
   console.log(msg);
 }
+
+// Load .env variables early
+log(`Loading Environment from: ${envDir}`);
+loadEnvConfig(envDir);
 
 const startServer = async () => {
   log("Initializing Next.js engine...");
   try {
     const next = require('next');
-    const dir = __dirname;
     const dev = false;
-    const hostname = 'localhost';
+    const hostname = '127.0.0.1'; // Use IP instead of localhost for Mac reliability
     
-    log(`App Directory: ${dir}`);
+    log(`Next.js App Directory: ${baseDir}`);
     
-    const nextApp = next({ dev, hostname, dir });
+    const nextApp = next({ dev, hostname, dir: baseDir });
     const handler = nextApp.getRequestHandler();
 
     await nextApp.prepare();
@@ -40,10 +51,10 @@ const startServer = async () => {
     });
 
     return new Promise((resolve) => {
-      // Listen on port 0 to get any available port
-      server.listen(0, () => {
+      // Listen on 127.0.0.1, port 0 for dynamic available port
+      server.listen(0, '127.0.0.1', () => {
         const { port } = server.address();
-        log(`Server listening on http://${hostname}:${port}`);
+        log(`Server listening on http://127.0.0.1:${port}`);
         resolve(port);
       });
     });
@@ -60,6 +71,7 @@ function getHWID() {
       return execSync('powershell.exe -NoProfile -Command "(Get-CimInstance Win32_ComputerSystemProduct).UUID"').toString().trim();
     }
     if (process.platform === "darwin") {
+      // More robust Mac UUID retrieval
       return execSync("ioreg -rd1 -c IOPlatformExpertDevice | grep -E 'IOPlatformUUID' | awk '{print $3}' | sed 's/\"//g'").toString().trim();
     }
     return "unknown";
@@ -73,41 +85,31 @@ async function createWindow() {
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
-    title: "FinOpenPOS Diagnostic Mode",
-    autoHideMenuBar: false, // Show menu for debugging
+    title: "FinOpenPOS",
+    autoHideMenuBar: false,
     backgroundColor: '#111111',
     webPreferences: { nodeIntegration: false, contextIsolation: true },
   });
 
-  // 1. Initialize Environment immediately
-  const { loadEnvConfig } = require('@next/env');
-  const envDir = app.isPackaged ? process.resourcesPath : __dirname;
-  const envPath = path.join(envDir, '.env');
-  
-  log(`Loading Environment from: ${envDir}`);
-  loadEnvConfig(envDir);
-
-  // 2. Run Diagnostics
-  const currentHWID = getHWID();
-  const envExists = fs.existsSync(envPath);
-  const envStatus = envExists ? "FOUND" : "MISSING";
-  
-  // Prefer HWID from .env, fallback to hardcoded
-  const allowedHWID = process.env.ALLOWED_HWID || "00000000-0000-0000-0000-309C232230F0";
-  const authSecretStatus = process.env.AUTH_SECRET ? "LOADED" : "NOT_FOUND";
-
-  const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
-
+  const isDev = !isPackaged || process.env.NODE_ENV === 'development';
   if (isDev) {
-    // Open DevTools in development mode
     win.webContents.openDevTools();
   }
 
+  // Diagnostics & Hardware Lock
+  const currentHWID = getHWID().toUpperCase();
+  const allowedHWID = (process.env.ALLOWED_HWID || "00000000-0000-0000-0000-309C232230F0").toUpperCase().trim();
+  
+  const envPath = path.join(envDir, '.env');
+  const envExists = fs.existsSync(envPath);
+  const envStatus = envExists ? "FOUND" : "MISSING";
+  const authSecretStatus = process.env.AUTH_SECRET ? "LOADED" : "NOT_FOUND";
+
+  log(`HWID Check: Current [${currentHWID}] | Allowed [${allowedHWID}]`);
+
   if (allowedHWID && currentHWID !== allowedHWID) {
-    log(`HWID Mismatch: Detected [${currentHWID}] expected [${allowedHWID}]`);
-    log(`Env Diagnostics: Path [${envPath}] | Status [${envStatus}] | AuthSecret [${authSecretStatus}]`);
-    
-    win.loadFile(path.join(__dirname, 'unauthorized.html'), {
+    log(`HWID Mismatch. Redirecting to unauthorized page.`);
+    win.loadFile(path.join(baseDir, 'unauthorized.html'), {
       query: { 
         hwid: currentHWID,
         expectedHwid: allowedHWID,
@@ -119,7 +121,8 @@ async function createWindow() {
     return;
   }
 
-  win.loadURL('data:text/html,<body style="background:#111;color:white;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;margin:0"><div><h1 style="text-align:center">FinOpenPOS</h1><p style="text-align:center">Initializing Engine...</p><p style="font-size:12px;opacity:0.5;text-align:center">Check DevTools (F12) for logs</p></div></body>');
+  // Splash Screen
+  win.loadURL('data:text/html,<body style="background:#111;color:white;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;margin:0"><div><h1 style="text-align:center">FinOpenPOS</h1><p style="text-align:center">Initializing Engine...</p></div></body>');
 
   const port = await startServer();
   
@@ -128,18 +131,26 @@ async function createWindow() {
     return;
   }
 
-  // Poll for localhost readiness
+  // Poll for server readiness
   let attempts = 0;
   const poll = () => {
     attempts++;
-    log(`Polling server at port ${port} (Attempt ${attempts})...`);
-    http.get(`http://localhost:${port}/login`, (res) => {
+    log(`Polling server at http://127.0.0.1:${port}/login (Attempt ${attempts})...`);
+    
+    const request = http.get(`http://127.0.0.1:${port}/login`, (res) => {
       log(`Server responded with status: ${res.statusCode}`);
-      win.loadURL(`http://localhost:${port}/login`);
-    }).on('error', (e) => {
-      if (attempts > 30) {
-        log("Server poll timed out after 30 seconds.");
-        win.loadURL('data:text/html,<body style="background:orange;color:white;padding:20px"><h1>Timeout</h1><p>Server is taking too long to respond.</p></body>');
+      if (res.statusCode === 200 || res.statusCode === 302) {
+        win.loadURL(`http://127.0.0.1:${port}/login`);
+      } else {
+        setTimeout(poll, 1000);
+      }
+    });
+
+    request.on('error', (e) => {
+      log(`Poll error: ${e.message}`);
+      if (attempts > 60) {
+        log("Server poll timed out after 60 seconds.");
+        win.loadURL('data:text/html,<body style="background:orange;color:white;padding:20px"><h1>Timeout</h1><p>The server is taking too long to start. Please check the logs.</p></body>');
       } else {
         setTimeout(poll, 1000);
       }
