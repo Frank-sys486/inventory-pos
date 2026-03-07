@@ -87,8 +87,14 @@ async function createWindow() {
     height: 800,
     title: "FinOpenPOS",
     autoHideMenuBar: false,
+    show: false, // Don't show until ready or error
     backgroundColor: '#111111',
     webPreferences: { nodeIntegration: false, contextIsolation: true },
+  });
+
+  // Show window as soon as it's ready to prevent black screen
+  win.once('ready-to-show', () => {
+    win.show();
   });
 
   const isDev = !isPackaged || process.env.NODE_ENV === 'development';
