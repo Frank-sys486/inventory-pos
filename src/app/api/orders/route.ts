@@ -1,5 +1,5 @@
 import { auth } from '@/auth'
-import { dbOrders, dbProducts, getAllDocs } from '@/lib/pouchdb'
+import { dbOrders, dbProducts, dbCustomers, getAllDocs } from '@/lib/pouchdb'
 import { NextResponse } from 'next/server'
 
 export async function GET() {
