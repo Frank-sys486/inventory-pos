@@ -16,37 +16,34 @@ const startServer = async () => {
   log("Initializing Next.js engine...");
   try {
     const next = require('next');
-    const { loadEnvConfig } = require('@next/env');
     const dir = __dirname;
-    
-    // In a packaged app, .env is located in the resourcesPath (extraResources)
-    const envDir = app.isPackaged ? process.resourcesPath : dir;
-    
-    log(`Loading Env from: ${envDir}`);
-    loadEnvConfig(envDir);
-    
     const dev = false;
     const hostname = 'localhost';
-    const port = 3000;
     
     log(`App Directory: ${dir}`);
     
-    const nextApp = next({ dev, hostname, port, dir });
+    const nextApp = next({ dev, hostname, dir });
     const handler = nextApp.getRequestHandler();
 
     await nextApp.prepare();
     log("Next.js prepare() successful.");
     
-    http.createServer((req, res) => {
+    const server = http.createServer((req, res) => {
       handler(req, res);
-    }).listen(port, () => {
-      log(`Server listening on http://${hostname}:${port}`);
     });
-    return true;
+
+    return new Promise((resolve) => {
+      // Listen on port 0 to get any available port
+      server.listen(0, () => {
+        const { port } = server.address();
+        log(`Server listening on http://${hostname}:${port}`);
+        resolve(port);
+      });
+    });
   } catch (err) {
     log(`CRITICAL ERROR starting server: ${err.message}`);
     log(err.stack);
-    return false;
+    return null;
   }
 };
 
@@ -117,9 +114,9 @@ async function createWindow() {
 
   win.loadURL('data:text/html,<body style="background:#111;color:white;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;margin:0"><div><h1 style="text-align:center">FinOpenPOS</h1><p style="text-align:center">Initializing Engine...</p><p style="font-size:12px;opacity:0.5;text-align:center">Check DevTools (F12) for logs</p></div></body>');
 
-  const success = await startServer();
+  const port = await startServer();
   
-  if (!success) {
+  if (!port) {
     win.loadURL(`data:text/html,<body style="background:red;color:white;padding:20px;font-family:monospace"><h1>Server Failed to Start</h1><p>Check the log file at: ${logPath.replace(/\\/g, '/')}</p></body>`);
     return;
   }
@@ -128,10 +125,10 @@ async function createWindow() {
   let attempts = 0;
   const poll = () => {
     attempts++;
-    log(`Polling server (Attempt ${attempts})...`);
-    http.get('http://localhost:3000', (res) => {
+    log(`Polling server at port ${port} (Attempt ${attempts})...`);
+    http.get(`http://localhost:${port}/login`, (res) => {
       log(`Server responded with status: ${res.statusCode}`);
-      win.loadURL('http://localhost:3000');
+      win.loadURL(`http://localhost:${port}/login`);
     }).on('error', (e) => {
       if (attempts > 30) {
         log("Server poll timed out after 30 seconds.");
