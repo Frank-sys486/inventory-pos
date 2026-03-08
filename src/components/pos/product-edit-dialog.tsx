@@ -40,13 +40,29 @@ export function POSProductEditDialog({
 }: ProductEditDialogProps) {
   const [tempPrice, setTempPrice] = useState<number>(0);
   const [tempName, setTempName] = useState<string>("");
+  const [tempTotal, setTempTotal] = useState<number>(0);
 
   useEffect(() => {
     if (product) {
       setTempPrice(product.price);
       setTempName(product.name);
+      setTempTotal(product.price * product.quantity);
     }
   }, [product, open]);
+
+  const handlePriceChange = (price: number) => {
+    setTempPrice(price);
+    if (product) {
+      setTempTotal(price * product.quantity);
+    }
+  };
+
+  const handleTotalChange = (total: number) => {
+    setTempTotal(total);
+    if (product && product.quantity > 0) {
+      setTempPrice(Number((total / product.quantity).toFixed(2)));
+    }
+  };
 
   const handleApply = () => {
     if (product) {
@@ -84,10 +100,25 @@ export function POSProductEditDialog({
               id="temp-price" 
               type="number" 
               value={tempPrice} 
-              onChange={(e) => setTempPrice(Number(e.target.value))} 
+              onChange={(e) => handlePriceChange(Number(e.target.value))} 
               className="col-span-3" 
             />
           </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="temp-total" className="text-right">Total</Label>
+            <Input 
+              id="temp-total" 
+              type="number" 
+              value={tempTotal} 
+              onChange={(e) => handleTotalChange(Number(e.target.value))} 
+              className="col-span-3" 
+            />
+          </div>
+          {product && (
+            <p className="text-[10px] text-center opacity-50 col-span-4">
+              Quantity: {product.quantity} {product.unit}
+            </p>
+          )}
         </div>
         <DialogFooter>
           <Button variant="secondary" onClick={() => onOpenChange(false)}>Cancel</Button>

@@ -431,8 +431,16 @@ export default function Products() {
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
-          </div>
+              <tfoot className="bg-muted/50 font-bold border-t">
+                <TableRow>
+                  <TableCell>TOTALS</TableCell>
+                  <TableCell className="text-blue-600">{formatCurrency(filteredProducts.reduce((sum, p) => sum + (p.cost || 0), 0))}</TableCell>
+                  <TableCell className="text-green-600">{formatCurrency(filteredProducts.reduce((sum, p) => sum + (p.price || 0), 0))}</TableCell>
+                  <TableCell>{filteredProducts.reduce((sum, p) => sum + (p.in_stock || 0), 0)} units</TableCell>
+                  <TableCell colSpan={2} className="text-right text-xs opacity-50">Inventory Value: {formatCurrency(filteredProducts.reduce((sum, p) => sum + ((p.cost || 0) * (p.in_stock || 0)), 0))}</TableCell>
+                </TableRow>
+              </tfoot>
+              </Table>          </div>
         </CardContent>
         <CardFooter></CardFooter>
       </Card>

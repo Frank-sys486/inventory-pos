@@ -1,5 +1,5 @@
 import { auth } from '@/auth'
-import { dbTransactions, getAllDocs } from '@/lib/pouchdb'
+import { dbProducts, getAllDocs } from '@/lib/pouchdb'
 import { NextResponse } from 'next/server'
 
 export async function GET() {
@@ -7,10 +7,12 @@ export async function GET() {
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    const transactions = await getAllDocs(dbTransactions);
-    const totalExpenses = transactions
-      .filter((t: any) => t.type === 'expense' && t.status === 'completed' && !t.isArchived)
-      .reduce((sum: number, t: any) => sum + t.amount, 0);
+    const products = await getAllDocs(dbProducts);
+    
+    // Total Expense = Total Inventory Value (Cost * In Stock)
+    const totalExpenses = products
+      .filter((p: any) => !p.isArchived)
+      .reduce((sum: number, p: any) => sum + ((p.cost || 0) * (p.in_stock || 0)), 0);
 
     return NextResponse.json({ totalExpenses });
   } catch (error) {

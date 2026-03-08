@@ -15,9 +15,11 @@ export async function GET() {
       .forEach((o: any) => {
         const items = o.items || o.products || [];
         items.forEach((item: any) => {
+          // Robust category detection
           const cat = item.category || "Uncategorized";
           const price = item.price || 0;
           const quantity = item.quantity || 0;
+          
           revenueByCategory[cat] = (revenueByCategory[cat] || 0) + (price * quantity);
         });
       });

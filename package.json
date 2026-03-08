@@ -18,8 +18,8 @@
     "build-win": "npm run build && npx electron-builder --win"
   },
   "build": {
-    "appId": "com.finopenpos.app",
-    "productName": "FinOpenPOS",
+    "appId": "com.mchardware.app",
+    "productName": "MC Hardware System",
     "directories": {
       "output": "dist"
     },

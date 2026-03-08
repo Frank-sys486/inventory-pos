@@ -168,9 +168,9 @@ export default function POSPage() {
 
   const generateReceiptContent = (title: string, deliveryActive: boolean, orderId?: string) => {
     let html = "";
-    const shopName = "GRACE HARDWARE";
-    const shopAddress = "B4 L29 Las Palmas";
-    const shopPhone = "09173002334";
+    const shopName = "MC HARDWARE SYSTEM";
+    const shopAddress = "BLK4 LOT29 Las Palmas Subdivision Cay Pombo Sta. Maria, Bulacan";
+    const shopPhone = "09173002334 / 09287890410";
     const date = new Date().toLocaleDateString();
     const time = new Date().toLocaleTimeString();
     const receiptNum = "MC-" + Math.floor(100000 + Math.random() * 900000);
@@ -262,7 +262,13 @@ export default function POSPage() {
         body: JSON.stringify({
           customer_id: selectedCustomer.id,
           paymentMethod: paymentMethod.name,
-          items: selectedProducts.map((p) => ({ product_id: p.id, name: p.name, quantity: p.quantity, price: p.price })),
+          items: selectedProducts.map((p) => ({
+            product_id: p.id,
+            name: p.name,
+            quantity: p.quantity,
+            price: p.price,
+            category: p.category || "Uncategorized"
+          })),
           total_amount: totalVal,
           status: 'completed'
         }),

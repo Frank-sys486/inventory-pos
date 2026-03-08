@@ -119,9 +119,7 @@ function getHWID() {
 
 async function createWindow() {
   const win = new BrowserWindow({
-    width: 1280,
-    height: 800,
-    title: "FinOpenPOS",
+    title: "MC Hardware System",
     backgroundColor: '#111111',
     webPreferences: { nodeIntegration: false, contextIsolation: true },
   });
@@ -140,7 +138,7 @@ async function createWindow() {
     return;
   }
 
-  win.loadURL('data:text/html,<body style="background:#111;color:white;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif"><h1>FinOpenPOS Initializing...</h1></body>');
+  win.loadURL('data:text/html,<body style="background:#111;color:white;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif"><h1>MC Hardware System Initializing...</h1></body>');
 
   const result = await startServer();
   if (result.error) {
