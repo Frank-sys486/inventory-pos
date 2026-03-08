@@ -308,7 +308,7 @@ export default function OrdersPage() {
   if (error) {
     return (
       <div className="container mx-auto p-4">
-        <h1 className="text-2xl font-bold mb-4">Orders</h1>
+        <h1 className="text-2xl font-bold mb-4">Sold Items</h1>
         <Card>
           <CardContent>
             <p className="text-red-500">{error}</p>
@@ -322,11 +322,12 @@ export default function OrdersPage() {
     <Card className="flex flex-col gap-6 p-6">
       <CardHeader className="p-0">
         <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Sold Items</h1>
           <div className="flex items-center gap-4">
             <div className="relative">
               <Input
                 type="text"
-                placeholder="Search orders..."
+                placeholder="Search sold items..."
                 value={searchTerm}
                 onChange={handleSearch}
                 className="pr-8"

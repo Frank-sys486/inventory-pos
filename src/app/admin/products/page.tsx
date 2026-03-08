@@ -91,6 +91,11 @@ export default function Products() {
   const [isDeleteConfirmationOpen, setIsDeleteConfirmationOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
 
+  const categories = useMemo(() => {
+    const cats = new Set(products.map(p => p.category || "Uncategorized"));
+    return Array.from(cats).sort();
+  }, [products]);
+
   const resetSelectedProduct = () => {
     setSelectedProductId(null);
     setProductCode("");
@@ -229,18 +234,27 @@ export default function Products() {
 
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
+      // 1. Search filter (Name or Category)
+      const matchesSearch = 
+        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (product.category && product.category.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      if (!matchesSearch) return false;
+
+      // 2. Category filter
       if (filters.category !== "all" && product.category !== filters.category) {
         return false;
       }
+
+      // 3. Stock filter
       if (filters.inStock !== "all") {
-        if (filters.inStock === "in-stock" && (product.in_stock || 0) <= 0) {
-          return false;
-        }
-        if (filters.inStock === "out-of-stock" && (product.in_stock || 0) > 0) {
-          return false;
-        }
+        const stock = product.in_stock || 0;
+        if (filters.inStock === "in-stock" && stock <= 0) return false;
+        if (filters.inStock === "out-of-stock" && stock > 0) return false;
+        if (filters.inStock === "low-stock" && (stock < 1 || stock > 10)) return false;
       }
-      return product.name.toLowerCase().includes(searchTerm.toLowerCase());
+
+      return true;
     });
   }, [products, filters.category, filters.inStock, searchTerm]);
 
@@ -283,14 +297,15 @@ export default function Products() {
       <Card className="flex flex-col gap-6 p-6">
         <CardHeader className="p-0">
           <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold">Items</h1>
             <div className="flex items-center gap-4">
               <div className="relative">
                 <Input
                   type="text"
-                  placeholder="Search products..."
+                  placeholder="Search items or categories..."
                   value={searchTerm}
                   onChange={handleSearch}
-                  className="pr-8"
+                  className="pr-8 min-w-[250px]"
                 />
                 <SearchIcon className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               </div>
@@ -301,74 +316,59 @@ export default function Products() {
                     <span>Filters</span>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuLabel>Filter by</DropdownMenuLabel>
+                <DropdownMenuContent align="end" className="w-56 overflow-y-auto max-h-[400px]">
+                  <DropdownMenuLabel>Stock Level</DropdownMenuLabel>
+                  <DropdownMenuCheckboxItem checked={filters.inStock === "all"} onCheckedChange={() => handleFilterChange("inStock", "all")}>All Levels</DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem checked={filters.inStock === "in-stock"} onCheckedChange={() => handleFilterChange("inStock", "in-stock")}>In Stock</DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem checked={filters.inStock === "low-stock"} onCheckedChange={() => handleFilterChange("inStock", "low-stock")}>Low Stock (1-10)</DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem checked={filters.inStock === "out-of-stock"} onCheckedChange={() => handleFilterChange("inStock", "out-of-stock")}>Out of Stock</DropdownMenuCheckboxItem>
+                  
                   <DropdownMenuSeparator />
-                  <DropdownMenuCheckboxItem
-                    checked={filters.category === "all"}
-                    onCheckedChange={() =>
-                      handleFilterChange("category", "all")
-                    }
-                  >
-                    All Categories
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={filters.category === "electronics"}
-                    onCheckedChange={() =>
-                      handleFilterChange("category", "electronics")
-                    }
-                  >
-                    Electronics
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={filters.category === "home"}
-                    onCheckedChange={() =>
-                      handleFilterChange("category", "home")
-                    }
-                  >
-                    Home
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={filters.category === "health"}
-                    onCheckedChange={() =>
-                      handleFilterChange("category", "health")
-                    }
-                  >
-                    Health
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuCheckboxItem
-                    checked={filters.inStock === "all"}
-                    onCheckedChange={() => handleFilterChange("inStock", "all")}
-                  >
-                    All Stock
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={filters.inStock === "in-stock"}
-                    onCheckedChange={() =>
-                      handleFilterChange("inStock", "in-stock")
-                    }
-                  >
-                    In Stock
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={filters.inStock === "out-of-stock"}
-                    onCheckedChange={() =>
-                      handleFilterChange("inStock", "out-of-stock")
-                    }
-                  >
-                    Out of Stock
-                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuLabel>Categories</DropdownMenuLabel>
+                  <DropdownMenuCheckboxItem checked={filters.category === "all"} onCheckedChange={() => handleFilterChange("category", "all")}>All Categories</DropdownMenuCheckboxItem>
+                  {categories.map(cat => (
+                    <DropdownMenuCheckboxItem key={cat} checked={filters.category === cat} onCheckedChange={() => handleFilterChange("category", cat)}>
+                      {cat}
+                    </DropdownMenuCheckboxItem>
+                  ))}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
             <Button size="sm" onClick={() => setIsAddProductDialogOpen(true)}>
               <PlusIcon className="w-4 h-4 mr-2" />
-              Add Product
+              Add Item
             </Button>
           </div>
         </CardHeader>
         <CardContent className="p-0">
+          <div className="px-6 py-4 bg-muted/30 border-b flex flex-wrap items-center justify-between gap-4 text-sm">
+            <div className="flex gap-6">
+              <div className="flex flex-col">
+                <span className="text-muted-foreground font-medium uppercase text-[10px]">Total Cost</span>
+                <span className="text-blue-600 font-bold text-lg leading-none">
+                  {formatCurrency(filteredProducts.reduce((sum, p) => sum + (p.cost || 0), 0))}
+                </span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-muted-foreground font-medium uppercase text-[10px]">Total Price</span>
+                <span className="text-green-600 font-bold text-lg leading-none">
+                  {formatCurrency(filteredProducts.reduce((sum, p) => sum + (p.price || 0), 0))}
+                </span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-muted-foreground font-medium uppercase text-[10px]">Total Stock</span>
+                <span className="text-foreground font-bold text-lg leading-none">
+                  {filteredProducts.reduce((sum, p) => sum + (p.in_stock || 0), 0)} <span className="text-[10px] font-normal text-muted-foreground">units</span>
+                </span>
+              </div>
+            </div>
+            <div className="flex flex-col items-end">
+              <span className="text-muted-foreground font-medium uppercase text-[10px]">Inventory Value</span>
+              <span className="text-orange-600 font-bold text-lg leading-none">
+                {formatCurrency(filteredProducts.reduce((sum, p) => sum + ((p.cost || 0) * (p.in_stock || 0)), 0))}
+              </span>
+            </div>
+          </div>
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -431,15 +431,6 @@ export default function Products() {
                   </TableRow>
                 ))}
               </TableBody>
-              <tfoot className="bg-muted/50 font-bold border-t">
-                <TableRow>
-                  <TableCell>TOTALS</TableCell>
-                  <TableCell className="text-blue-600">{formatCurrency(filteredProducts.reduce((sum, p) => sum + (p.cost || 0), 0))}</TableCell>
-                  <TableCell className="text-green-600">{formatCurrency(filteredProducts.reduce((sum, p) => sum + (p.price || 0), 0))}</TableCell>
-                  <TableCell>{filteredProducts.reduce((sum, p) => sum + (p.in_stock || 0), 0)} units</TableCell>
-                  <TableCell colSpan={2} className="text-right text-xs opacity-50">Inventory Value: {formatCurrency(filteredProducts.reduce((sum, p) => sum + ((p.cost || 0) * (p.in_stock || 0)), 0))}</TableCell>
-                </TableRow>
-              </tfoot>
               </Table>          </div>
         </CardContent>
         <CardFooter></CardFooter>

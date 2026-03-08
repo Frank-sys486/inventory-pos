@@ -1,12 +1,10 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   Card,
   CardHeader,
   CardTitle,
   CardContent,
-  CardDescription,
-  CardFooter,
 } from "@/components/ui/card";
 import {
   ChartTooltipContent,
@@ -14,7 +12,7 @@ import {
   ChartContainer,
   ChartConfig,
 } from "@/components/ui/chart";
-import { Loader2Icon, TrendingUp } from "lucide-react";
+import { Loader2Icon, CalendarIcon, DollarSignIcon } from "lucide-react";
 import {
   Pie,
   PieChart,
@@ -27,6 +25,14 @@ import {
 } from "recharts";
 import { formatCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 
 const pad = (left: string, right: string, width = 28) => {
   const leftStr = String(left);
@@ -45,8 +51,9 @@ const center = (text: string, width = 28) => {
 
 export default function Page() {
   const [totalRevenue, setTotalRevenue] = useState(0);
-  const [totalExpenses, setTotalExpenses] = useState(0);
+  const [totalCapital, setTotalCapital] = useState(0);
   const [totalProfit, setTotalProfit] = useState(0);
+  const [totalExpenses, setTotalExpenses] = useState(0);
   const [cashFlow, setCashFlow] = useState<{ date: string; amount: unknown }[]>([]);
   const [revenueByCategory, setRevenueByCategory] = useState({});
   const [expensesByCategory, setExpensesByCategory] = useState({});
@@ -54,42 +61,75 @@ export default function Page() {
   const [loading, setLoading] = useState(true);
   const [receiptContent, setReceiptContent] = useState("");
 
+  const [dateFilter, setDateFilter] = useState("daily");
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
+
+  const dateRange = useMemo(() => {
+    const now = new Date();
+    let start = new Date();
+    let end = new Date();
+
+    switch (dateFilter) {
+      case "daily":
+        start.setHours(0, 0, 0, 0);
+        end.setHours(23, 59, 59, 999);
+        break;
+      case "monthly":
+        start = new Date(now.getFullYear(), now.getMonth(), 1);
+        end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+        break;
+      case "yearly":
+        start = new Date(now.getFullYear(), 0, 1);
+        end = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+        break;
+      case "custom":
+        if (customStartDate) start = new Date(customStartDate);
+        if (customEndDate) {
+          end = new Date(customEndDate);
+          end.setHours(23, 59, 59, 999);
+        }
+        break;
+    }
+    return { start: start.toISOString(), end: end.toISOString() };
+  }, [dateFilter, customStartDate, customEndDate]);
+
   useEffect(() => {
     const fetchData = async () => {
+      setLoading(true);
       try {
+        const query = `?startDate=${dateRange.start}&endDate=${dateRange.end}`;
         const [
-          revenueRes,
-          expensesRes,
           profitRes,
+          expensesRes,
           cashFlowRes,
           revenueByCategoryRes,
           expensesByCategoryRes,
           profitMarginRes
         ] = await Promise.all([
-          fetch('/api/admin/revenue/total'),
-          fetch('/api/admin/expenses/total'),
-          fetch('/api/admin/profit/total'),
-          fetch('/api/admin/cashflow'),
-          fetch('/api/admin/revenue/category'),
-          fetch('/api/admin/expenses/category'),
-          fetch('/api/admin/profit/margin')
+          fetch(`/api/admin/profit/total${query}`),
+          fetch(`/api/admin/expenses/total${query}`),
+          fetch(`/api/admin/cashflow${query}`),
+          fetch(`/api/admin/revenue/category${query}`),
+          fetch(`/api/admin/expenses/category${query}`),
+          fetch(`/api/admin/profit/margin${query}`)
         ]);
 
-        const revenue = await revenueRes.json();
+        const profitData = await profitRes.json();
         const expenses = await expensesRes.json();
-        const profit = await profitRes.json();
         const cashFlowData = await cashFlowRes.json();
         const revenueByCategoryData = await revenueByCategoryRes.json();
         const expensesByCategoryData = await expensesByCategoryRes.json();
         const profitMarginData = await profitMarginRes.json();
 
-        setTotalRevenue(revenue.totalRevenue);
-        setTotalExpenses(expenses.totalExpenses);
-        setTotalProfit(profit.totalProfit);
-        setCashFlow(Object.entries(cashFlowData.cashFlow).map(([date, amount]) => ({ date, amount })));
-        setRevenueByCategory(revenueByCategoryData.revenueByCategory);
-        setExpensesByCategory(expensesByCategoryData.expensesByCategory);
-        setProfitMargin(profitMarginData.profitMargin);
+        setTotalRevenue(profitData.totalRevenue || 0);
+        setTotalCapital(profitData.totalCapital || 0);
+        setTotalProfit(profitData.totalProfit || 0);
+        setTotalExpenses(expenses.totalExpenses || 0);
+        setCashFlow(Object.entries(cashFlowData.cashFlow || {}).map(([date, amount]) => ({ date, amount })));
+        setRevenueByCategory(revenueByCategoryData.revenueByCategory || {});
+        setExpensesByCategory(expensesByCategoryData.expensesByCategory || {});
+        setProfitMargin(profitMarginData.profitMargin || []);
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -98,161 +138,151 @@ export default function Page() {
     };
 
     fetchData();
-  }, []);
+  }, [dateRange]);
 
   const handlePrintSummary = () => {
     let content = "";
-    const shopName = "FIN OPEN POS";
-    const address = "123 COMMERCE AVENUE";
-    const phone = "TEL: (555) 019-8372";
-    const date = new Date().toLocaleDateString();
-    const time = new Date().toLocaleTimeString();
+    const shopName = "MC HARDWARE SYSTEM";
+    const address = "SUMMARY REPORT";
+    const dateStr = new Date().toLocaleDateString();
+    const timeStr = new Date().toLocaleTimeString();
     const charWidth = 28;
     const line = "-".repeat(charWidth);
     const dash = "- ".repeat(charWidth / 2).trim();
 
-    // Header Section
-    content += `<div style="text-align: center; font-weight: bold; font-size: 18px; margin-bottom: 2px;">${shopName.toUpperCase()}</div>`;
-    content += center(address.toUpperCase(), charWidth) + "\n";
-    content += center(phone.toUpperCase(), charWidth) + "\n";
+    content += `<div style="text-align: center; font-weight: bold; font-size: 16px;">${shopName}</div>`;
+    content += center(address, charWidth) + "\n";
+    content += dash + "\n";
+    content += pad("RANGE:", dateFilter.toUpperCase(), charWidth) + "\n";
+    content += pad("DATE:", dateStr, charWidth) + "\n";
     content += dash + "\n";
 
-    // Meta Info
-    content += pad("DATE:", `${date} ${time}`, charWidth) + "\n";
-    content += pad("RCPT:", "#SUMMARY", charWidth) + "\n";
-    content += pad("CASHIER:", "ADMIN", charWidth) + "\n";
-    content += dash + "\n";
-
-    // Headers
-    content += pad("DESCRIPTION", "TOTAL", charWidth) + "\n";
+    content += pad("GROSS SALES", totalRevenue.toFixed(2), charWidth) + "\n";
+    content += pad("TOTAL CAPITAL", totalCapital.toFixed(2), charWidth) + "\n";
     content += line + "\n";
-
-    // Data Rows
-    content += pad("TOTAL REVENUE", totalRevenue.toFixed(2), charWidth) + "\n";
-    content += pad("TOTAL EXPENSES", totalExpenses.toFixed(2), charWidth) + "\n";
-    content += dash + "\n";
-
-    // Calculations
-    content += pad("SUBTOTAL", totalProfit.toFixed(2), charWidth) + "\n";
-    content += pad("TAX (0.0%)", "0.00", charWidth) + "\n";
-    content += `<div style="font-weight: bold; border-top: 1px solid black; margin-top: 4px; padding-top: 2px;">${pad("NET PROFIT", totalProfit.toFixed(2), charWidth)}</div>`;
-    content += dash + "\n";
-
-    // Categories Section
-    if (Object.keys(revenueByCategory).length > 0) {
-      content += center("REVENUE BY CATEGORY", charWidth) + "\n";
-      Object.entries(revenueByCategory).forEach(([cat, val]) => {
-        content += pad(cat.toUpperCase().substring(0, 16), (val as number).toFixed(2), charWidth) + "\n";
-      });
-      content += dash + "\n";
-    }
-
-    content += "\n";
-    // Footer
-    content += center("*** END OF REPORT ***", charWidth) + "\n";
-    content += center("FIN OPEN POS SYSTEM", charWidth) + "\n";
-    content += "\n";
-    content += center("882910394812", charWidth) + "\n";
-    content += "\n\n\n";
+    content += pad("TOTAL PROFIT", totalProfit.toFixed(2), charWidth) + "\n";
+    content += dash + "\n\n\n\n";
 
     setReceiptContent(content);
-
-    setTimeout(() => {
-      window.print();
-    }, 150);
+    setTimeout(() => window.print(), 150);
   };
-
-  if (loading) {
-    return (
-      <div className="h-[80vh] flex items-center justify-center">
-        <Loader2Icon className="mx-auto h-12 w-12 animate-spin" />
-      </div>
-    );
-  }
 
   return (
     <div className="grid flex-1 items-start gap-4 p-4">
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
         <h1 className="text-2xl font-bold">Dashboard</h1>
-        <Button onClick={handlePrintSummary} variant="outline">
-          Print Summary
-        </Button>
-      </div>
-      <div className="grid auto-rows-max items-start gap-4 lg:grid-cols-2 xl:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-            <DollarSignIcon className="w-4 h-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalRevenue)}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Expenses
-            </CardTitle>
-            <DollarSignIcon className="w-4 h-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalExpenses)}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total Profit (selling)</CardTitle>
-            <DollarSignIcon className="w-4 h-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalProfit)}</div>
-          </CardContent>
-        </Card>
-      </div>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">
-              Revenue by Category
-            </CardTitle>
-            <PieChartIcon className="w-4 h-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <PiechartcustomChart data={revenueByCategory} className="aspect-auto" />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">
-              Expenses by Category
-            </CardTitle>
-            <PieChartIcon className="w-4 h-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <PiechartcustomChart data={expensesByCategory} className="aspect-auto" />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Profit Margin (selling)</CardTitle>
-            <BarChartIcon className="w-4 h-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <BarchartChart data={profitMargin} className="aspect-auto" />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Cash Flow</CardTitle>
-            <DollarSignIcon className="w-4 h-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <LinechartChart data={cashFlow} className="aspect-auto" />
-          </CardContent>
-        </Card>
+        
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={dateFilter} onValueChange={setDateFilter}>
+            <SelectTrigger className="w-[150px]">
+              <CalendarIcon className="w-4 h-4 mr-2" />
+              <SelectValue placeholder="Date Range" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="daily">Daily</SelectItem>
+              <SelectItem value="monthly">Monthly</SelectItem>
+              <SelectItem value="yearly">Yearly</SelectItem>
+              <SelectItem value="custom">Custom Range</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {dateFilter === "custom" && (
+            <div className="flex items-center gap-2">
+              <Input 
+                type="date" 
+                value={customStartDate} 
+                onChange={(e) => setCustomStartDate(e.target.value)} 
+                className="w-[140px] h-9"
+              />
+              <span>to</span>
+              <Input 
+                type="date" 
+                value={customEndDate} 
+                onChange={(e) => setCustomEndDate(e.target.value)} 
+                className="w-[140px] h-9"
+              />
+            </div>
+          )}
+
+          <Button onClick={handlePrintSummary} variant="outline" size="sm">
+            Print Summary
+          </Button>
+        </div>
       </div>
 
-      {/* Hidden Receipt for Printing - Exact styling from POS */}
+      {loading ? (
+        <div className="h-[50vh] flex items-center justify-center">
+          <Loader2Icon className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : (
+        <>
+          <div className="grid auto-rows-max items-start gap-4 lg:grid-cols-2 xl:grid-cols-3">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Gross Sale</CardTitle>
+                <DollarSignIcon className="w-4 h-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{formatCurrency(totalRevenue)}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Total Capital</CardTitle>
+                <DollarSignIcon className="w-4 h-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{formatCurrency(totalCapital)}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Total Profit</CardTitle>
+                <DollarSignIcon className="w-4 h-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{formatCurrency(totalProfit)}</div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Revenue by Category</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <PiechartcustomChart data={revenueByCategory} className="aspect-auto" />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Expenses (Operating)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <PiechartcustomChart data={expensesByCategory} className="aspect-auto" />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Profit Margin</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <BarchartChart data={profitMargin} className="aspect-auto" />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Cash Flow</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <LinechartChart data={cashFlow} className="aspect-auto" />
+              </CardContent>
+            </Card>
+          </div>
+        </>
+      )}
+
       <div className="hidden print:flex print:justify-center w-full">
         <div 
           id="printable-receipt" 
@@ -260,67 +290,19 @@ export default function Page() {
           dangerouslySetInnerHTML={{ __html: receiptContent }}
         />
       </div>
-      <style jsx global>{`
-        @media print {
-          @page {
-            margin: 0;
-            size: 58mm auto;
-          }
-          html, body {
-            margin: 0 !important;
-            padding: 0 !important;
-            width: 58mm !important;
-          }
-        }
-      `}</style>
     </div>
   );
 }
 
-function BarChartIcon(props: any) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <line x1="12" x2="12" y1="20" y2="10" />
-      <line x1="18" x2="18" y1="20" y2="4" />
-      <line x1="6" x2="6" y1="20" y2="16" />
-    </svg>
-  );
-}
-
 function BarchartChart({ data, ...props }: { data: any[] } & React.HTMLAttributes<HTMLDivElement>) {
-  const chartConfig = {
-    margin: {
-      label: "Margin",
-      color: "hsl(var(--chart-1))",
-    },
-  } satisfies ChartConfig;
+  const chartConfig = { margin: { label: "Margin", color: "hsl(var(--chart-1))" } } satisfies ChartConfig;
   return (
     <div {...props}>
       <ChartContainer config={chartConfig}>
         <BarChart accessibilityLayer data={data}>
           <CartesianGrid vertical={false} />
-          <XAxis
-            dataKey="date"
-            tickLine={false}
-            tickMargin={10}
-            axisLine={false}
-            tickFormatter={(value) => new Date(value).toLocaleDateString()}
-          />
-          <ChartTooltip
-            cursor={false}
-            content={<ChartTooltipContent indicator="dashed" />}
-          />
+          <XAxis dataKey="date" tickLine={false} tickMargin={10} axisLine={false} tickFormatter={(value) => new Date(value).toLocaleDateString()} />
+          <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dashed" />} />
           <Bar dataKey="margin" fill="var(--color-margin)" radius={4} />
         </BarChart>
       </ChartContainer>
@@ -328,124 +310,42 @@ function BarchartChart({ data, ...props }: { data: any[] } & React.HTMLAttribute
   );
 }
 
-function DollarSignIcon(props: any) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <line x1="12" x2="12" y1="2" y2="22" />
-      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-    </svg>
-  );
-}
-
 function LinechartChart({ data, ...props }: { data: any[] } & React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div {...props}>
-      <ChartContainer
-        config={{
-          amount: {
-            label: "Amount",
-            color: "hsl(var(--chart-1))",
-          },
-        }}
-      >
-        <LineChart
-          accessibilityLayer
-          data={data}
-          margin={{
-            left: 12,
-            right: 12,
-          }}
-        >
+      <ChartContainer config={{ amount: { label: "Amount", color: "hsl(var(--chart-1))" } }}>
+        <LineChart accessibilityLayer data={data} margin={{ left: 12, right: 12 }}>
           <CartesianGrid vertical={false} />
-          <XAxis
-            dataKey="date"
-            tickLine={false}
-            axisLine={false}
-            tickMargin={8}
-            tickFormatter={(value) => new Date(value).toLocaleDateString()}
-          />
-          <ChartTooltip
-            cursor={false}
-            content={<ChartTooltipContent hideLabel />}
-          />
-          <Line
-            dataKey="amount"
-            type="monotone"
-            stroke="var(--color-amount)"
-            strokeWidth={2}
-            dot={false}
-          />
+          <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => new Date(value).toLocaleDateString()} />
+          <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
+          <Line dataKey="amount" type="monotone" stroke="var(--color-amount)" strokeWidth={2} dot={false} />
         </LineChart>
       </ChartContainer>
     </div>
   );
 }
 
-function PieChartIcon(props: any) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
-      <path d="M22 12A10 10 0 0 0 12 2v10z" />
-    </svg>
-  );
-}
-
 function PiechartcustomChart({ data, ...props }: { data: Record<string, number> } & React.HTMLAttributes<HTMLDivElement>) {
-  const chartData = Object.entries(data).map(([category, value]) => ({
-    category,
-    value,
-    fill: `var(--color-${category})`,
-  }));
-
+  const chartData = Object.entries(data).map(([category, value]) => {
+    const safeKey = category.toLowerCase().replace(/[^a-z0-9]/g, "-");
+    return { category, value, fill: `var(--color-${safeKey})` };
+  });
+  
   const chartConfig = Object.fromEntries(
-    Object.keys(data).map((category, index) => [
-      category,
-      {
-        label: category,
-        color: `hsl(var(--chart-${index + 1}))`,
-      },
-    ])
+    Object.keys(data).map((category, index) => {
+      const safeKey = category.toLowerCase().replace(/[^a-z0-9]/g, "-");
+      return [safeKey, { label: category, color: `hsl(var(--chart-${(index % 5) + 1}))` }];
+    })
   ) as ChartConfig;
 
   return (
     <div {...props}>
       <ChartContainer config={chartConfig}>
         <PieChart>
-          <ChartTooltip
-            cursor={false}
-            content={<ChartTooltipContent hideLabel />}
-          />
-          <Pie
-            data={chartData}
-            dataKey="value"
-            nameKey="category"
-            outerRadius={80}
-          />
+          <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
+          <Pie data={chartData} dataKey="value" nameKey="category" outerRadius={60} />
         </PieChart>
       </ChartContainer>
     </div>
   );
 }
-

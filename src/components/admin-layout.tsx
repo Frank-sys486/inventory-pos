@@ -34,8 +34,8 @@ import {
 const pageNames: { [key: string]: string } = {
   "/admin": "Dashboard",
   "/admin/customers": "Customers",
-  "/admin/products": "Products",
-  "/admin/orders": "Orders",
+  "/admin/products": "Items",
+  "/admin/orders": "Sold Items",
   "/admin/pos": "Point of Sale",
   "/admin/cashier": "Cashier",
   "/admin/settings": "Settings",
@@ -136,10 +136,10 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                     } transition-colors hover:text-foreground md:h-8 md:w-8`}
                   >
                     <PackageIcon className="h-5 w-5" />
-                    <span className="sr-only">Products</span>
+                    <span className="sr-only">Items</span>
                   </Link>
                 </TooltipTrigger>
-                <TooltipContent side="right">Products</TooltipContent>
+                <TooltipContent side="right">Items</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -168,10 +168,10 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                     } transition-colors hover:text-foreground md:h-8 md:w-8`}
                   >
                     <ShoppingBagIcon className="h-5 w-5" />
-                    <span className="sr-only">Orders</span>
+                    <span className="sr-only">Sold Items</span>
                   </Link>
                 </TooltipTrigger>
-                <TooltipContent side="right">Orders</TooltipContent>
+                <TooltipContent side="right">Sold Items</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>

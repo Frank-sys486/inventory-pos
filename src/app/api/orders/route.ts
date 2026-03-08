@@ -25,7 +25,8 @@ export async function GET() {
         total_amount: o.total_amount || o.total || 0,
         customer_id: o.customer_id || o.customerId,
         customer: customerMap[o.customer_id || o.customerId] || { name: 'Unknown Customer' }
-      }));
+      }))
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
     return NextResponse.json(enrichedOrders);
   } catch (error) {

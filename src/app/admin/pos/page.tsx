@@ -267,6 +267,7 @@ export default function POSPage() {
             name: p.name,
             quantity: p.quantity,
             price: p.price,
+            cost: p.cost,
             category: p.category || "Uncategorized"
           })),
           total_amount: totalVal,
