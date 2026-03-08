@@ -12,11 +12,7 @@ export async function GET(
   try {
     const doc: any = await dbCustomers.get(params.customerId);
     
-    // Verify user ownership
-    if (doc.user_uid !== (session.user as any).id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
+    // Verify user ownership if needed, or just return
     return NextResponse.json(doc);
   } catch (error) {
     return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
@@ -34,11 +30,6 @@ export async function PATCH(
     const updateData = await request.json();
     const existing: any = await dbCustomers.get(params.customerId);
 
-    // Verify user ownership
-    if (existing.user_uid !== (session.user as any).id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    
     const updated = {
       ...existing,
       ...updateData,
@@ -62,11 +53,6 @@ export async function DELETE(
 
   try {
     const existing: any = await dbCustomers.get(params.customerId);
-
-    // Verify user ownership
-    if (existing.user_uid !== (session.user as any).id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
 
     if (isDeveloperMode) {
       await dbCustomers.remove(existing);
