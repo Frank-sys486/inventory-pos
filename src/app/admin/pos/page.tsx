@@ -21,21 +21,6 @@ import { ProductDialog } from "@/components/pos/product-dialog";
 import { POSProductEditDialog } from "@/components/pos/product-edit-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 
-const pad = (left: string, right: string, width = 30) => {
-  const leftStr = String(left);
-  const rightStr = String(right);
-  const space = width - leftStr.length - rightStr.length;
-  if (space < 0) return leftStr + " " + rightStr;
-  return leftStr + " ".repeat(space) + rightStr;
-};
-
-const center = (text: string, width = 30) => {
-  const str = String(text);
-  const space = Math.max(0, width - str.length);
-  const left = Math.floor(space / 2);
-  return " ".repeat(left) + str;
-};
-
 type POSItem = {
   id: string;
   code?: string;
@@ -82,25 +67,43 @@ export default function POSPage() {
   const [editingProduct, setEditingProduct] = useState<POSItem | null>(null);
   const [productForTempEdit, setProductForTempEdit] = useState<POSProduct | null>(null);
 
-  const productRef = useRef<HTMLInputElement>(null);
+  // Refs for keyboard focus
+  const customerRef = useRef<HTMLButtonElement>(null);
+  const paymentRef = useRef<HTMLButtonElement>(null);
+  const productSearchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchProducts();
     fetchCustomers();
     fetchPaymentMethods();
-    const recentCustomerId = localStorage.getItem("recentCustomerId");
-    const recentPaymentMethodId = localStorage.getItem("recentPaymentMethodId");
-    if (recentCustomerId) handleSelectCustomer(recentCustomerId);
-    if (recentPaymentMethodId) handleSelectPaymentMethod(recentPaymentMethodId);
-  }, []);
+    
+    // Global Keyboard Shortcuts
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 1. Handle Function Keys
+      if (['F2', 'F3', 'F4', 'F9'].includes(e.key)) {
+        e.preventDefault();
+        switch (e.key) {
+          case 'F2': customerRef.current?.focus(); break;
+          case 'F3': paymentRef.current?.focus(); break;
+          case 'F4': productSearchRef.current?.focus(); break;
+          case 'F9': handlePrintReceipt(); break;
+        }
+        return;
+      }
 
-  useEffect(() => {
-    if (selectedCustomer) localStorage.setItem("recentCustomerId", selectedCustomer.id);
-  }, [selectedCustomer]);
+      // 2. Alphanumeric Capture (Redirect any typing to product search)
+      const isTyping = document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA';
+      const isModifier = e.ctrlKey || e.altKey || e.metaKey;
+      const isSingleChar = e.key.length === 1;
 
-  useEffect(() => {
-    if (paymentMethod) localStorage.setItem("recentPaymentMethodId", paymentMethod.id);
-  }, [paymentMethod]);
+      if (!isTyping && !isModifier && isSingleChar) {
+        productSearchRef.current?.focus();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedCustomer, paymentMethod, selectedProducts, isForDelivery]);
 
   const fetchProducts = async () => {
     try {
@@ -141,7 +144,8 @@ export default function POSPage() {
     const product = products.find((p) => p.id === productId.toString());
     if (!product) return;
     handleAddProduct(product);
-    setTimeout(() => productRef.current?.focus(), 200);
+    // Refocus product search after selection for rapid entry
+    setTimeout(() => productSearchRef.current?.focus(), 50);
   };
 
   const handleSelectCustomer = (customerId: string | number) => {
@@ -196,7 +200,7 @@ export default function POSPage() {
     html += line(title, "", { bold: true, center: true });
     html += sep();
 
-    // Meta Info
+    // Meta
     html += line("DATE:", `${date} ${time}`, { size: 'sm' });
     html += line("RCPT:", receiptNum, { size: 'sm' });
     html += line("CASHIER:", "01 (ADMIN)", { size: 'sm' });
@@ -218,7 +222,7 @@ export default function POSPage() {
     html += line("TOTAL", totalVal.toFixed(2), { bold: true, size: 'lg' });
     html += sep();
 
-    // Footer Info
+    // Footer
     if (paymentMethod) html += line("TENDER:", paymentMethod.name.toUpperCase(), { size: 'sm' });
     if (selectedCustomer) {
       html += line("CUST:", selectedCustomer.name.toUpperCase(), { size: 'sm' });
@@ -319,7 +323,12 @@ export default function POSPage() {
             <label className="mb-2 block text-sm font-medium">
               Customer <ShortcutBadge k="F2" />
             </label>
-            <Combobox items={customers} placeholder="Select Customer" onSelect={handleSelectCustomer} />
+            <Combobox
+              ref={customerRef}
+              items={customers}
+              placeholder="Select Customer"
+              onSelect={handleSelectCustomer}
+            />
             {selectedCustomer && (
               <div className="flex items-center space-x-2 mt-2">
                 <Checkbox id="delivery" checked={isForDelivery} onCheckedChange={(checked) => setIsForDelivery(!!checked)} />
@@ -331,7 +340,12 @@ export default function POSPage() {
             <label className="mb-2 block text-sm font-medium">
               Payment Method <ShortcutBadge k="F3" />
             </label>
-            <Combobox items={paymentMethods} placeholder="Select Payment Method" onSelect={handleSelectPaymentMethod} />
+            <Combobox
+              ref={paymentRef}
+              items={paymentMethods}
+              placeholder="Select Payment Method"
+              onSelect={handleSelectPaymentMethod}
+            />
           </div>
         </CardContent>
       </Card>
@@ -343,7 +357,12 @@ export default function POSPage() {
             <label className="mb-2 block text-sm font-medium">
               Add Product <ShortcutBadge k="F4" />
             </label>
-            <ProductSearch items={products} placeholder="Select Product" onSelect={handleSelectProduct} />
+            <ProductSearch
+              ref={productSearchRef}
+              items={products}
+              placeholder="Select Product"
+              onSelect={handleSelectProduct}
+            />
           </div>
         </CardHeader>
         <CardContent>
