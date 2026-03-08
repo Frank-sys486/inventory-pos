@@ -36,16 +36,16 @@ const center = (text: string, width = 32) => {
   return " ".repeat(left) + str;
 };
 
-type Product = {
+type POSItem = {
   id: string;
   code?: string;
   name: string;
   price: number;
   unit: string;
-  description?: string;
-  cost?: number;
-  in_stock?: number;
-  category?: string;
+  description: string;
+  cost: number;
+  in_stock: number;
+  category: string; // Required to match dialog
 };
 
 type Customer = {
@@ -61,12 +61,12 @@ type PaymentMethod = {
   name: string;
 };
 
-interface POSProduct extends Product {
+interface POSProduct extends POSItem {
   quantity: number;
 }
 
 export default function POSPage() {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<POSItem[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [selectedProducts, setSelectedProducts] = useState<POSProduct[]>([]);
@@ -81,7 +81,7 @@ export default function POSPage() {
   const [showProductDialog, setShowProductDialog] = useState(false);
   const [showTempEditDialog, setShowTempEditDialog] = useState(false);
   
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editingProduct, setEditingProduct] = useState<POSItem | null>(null);
   const [productForTempEdit, setProductForTempEdit] = useState<POSProduct | null>(null);
 
   // Refs for keyboard navigation
@@ -115,7 +115,11 @@ export default function POSPage() {
       const response = await fetch("/api/products");
       if (!response.ok) throw new Error("Failed to fetch products");
       const data = await response.json();
-      setProducts(data.map((item: any) => ({ ...item, id: item.id || item._id })));
+      setProducts(data.map((item: any) => ({ 
+        ...item, 
+        id: item.id || item._id,
+        description: item.description || "" // Ensure string for dialog
+      })));
     } catch (error) { console.error("Error fetching products:", error); }
   };
 
@@ -137,7 +141,7 @@ export default function POSPage() {
     } catch (error) { console.error("Error fetching payment methods:", error); }
   };
 
-  const handleAddProduct = (product: Product) => {
+  const handleAddProduct = (product: POSItem) => {
     if (selectedProducts.some((p) => p.id === product.id)) {
       setSelectedProducts(
         selectedProducts.map((p) =>
@@ -149,20 +153,20 @@ export default function POSPage() {
     }
   };
 
-  const handleSelectProduct = (productId: string) => {
-    const product = products.find((p) => p.id === productId);
+  const handleSelectProduct = (productId: string | number) => {
+    const product = products.find((p) => p.id === productId.toString());
     if (!product) return;
     handleAddProduct(product);
     setTimeout(() => productRef.current?.focus(), 200);
   };
 
-  const handleSelectCustomer = (customerId: string) => {
-    const customer = customers.find((c) => c.id === customerId);
+  const handleSelectCustomer = (customerId: string | number) => {
+    const customer = customers.find((c) => c.id === customerId.toString());
     if (customer) setSelectedCustomer(customer);
   };
 
-  const handleSelectPaymentMethod = (paymentMethodId: string) => {
-    const method = paymentMethods.find((pm) => pm.id === paymentMethodId);
+  const handleSelectPaymentMethod = (paymentMethodId: string | number) => {
+    const method = paymentMethods.find((pm) => pm.id === paymentMethodId.toString());
     if (method) setPaymentMethod(method);
   };
 

@@ -19,6 +19,10 @@ interface POSProduct {
   price: number;
   quantity: number;
   unit: string;
+  description: string;
+  cost: number;
+  in_stock: number;
+  category: string;
 }
 
 interface ProductEditDialogProps {
