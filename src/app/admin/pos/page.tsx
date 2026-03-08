@@ -150,7 +150,7 @@ export default function POSPage() {
 
     const line = (left: string, right: string = "", options: { bold?: boolean, size?: 'sm' | 'base' | 'lg', center?: boolean } = {}) => {
       const isSplit = right !== "";
-      const fontSize = options.size === 'sm' ? '9px' : options.size === 'lg' ? '14px' : '11px';
+      const fontSize = options.size === 'sm' ? '11px' : options.size === 'lg' ? '16px' : '13px';
       const weight = options.bold ? 'bold' : 'normal';
       const align = options.center ? 'center' : 'left';
       
@@ -163,7 +163,7 @@ export default function POSPage() {
       return `<div class="receipt-line" style="font-weight: ${weight}; font-size: ${fontSize}; text-align: ${align};">${left}</div>`;
     };
 
-    const sep = () => `<div class="receipt-line" style="border-top: 1px dashed black; margin: 4px 0;"></div>`;
+    const sep = () => `<div class="receipt-line" style="border-top: 1px dashed black; margin: 5px 0;"></div>`;
 
     // Header
     html += line(shopName, "", { bold: true, size: 'lg', center: true });
@@ -201,7 +201,7 @@ export default function POSPage() {
       html += line("CUST:", selectedCustomer.name.toUpperCase(), { size: 'sm' });
       if (deliveryActive && selectedCustomer.address) {
         html += line("ADDRESS:", "", { bold: true, size: 'sm' });
-        html += `<div class="receipt-line" style="font-size: 9px; white-space: normal; line-height: 1.1;">${selectedCustomer.address.toUpperCase()}</div>`;
+        html += `<div class="receipt-line" style="font-size: 11px; white-space: normal; line-height: 1.1;">${selectedCustomer.address.toUpperCase()}</div>`;
       }
     }
 
