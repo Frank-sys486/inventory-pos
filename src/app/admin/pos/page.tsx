@@ -21,21 +21,6 @@ import { ProductDialog } from "@/components/pos/product-dialog";
 import { POSProductEditDialog } from "@/components/pos/product-edit-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 
-const pad = (left: string, right: string, width = 32) => {
-  const leftStr = String(left);
-  const rightStr = String(right);
-  const space = width - leftStr.length - rightStr.length;
-  if (space < 0) return leftStr + " " + rightStr;
-  return leftStr + " ".repeat(space) + rightStr;
-};
-
-const center = (text: string, width = 32) => {
-  const str = String(text);
-  const space = Math.max(0, width - str.length);
-  const left = Math.floor(space / 2);
-  return " ".repeat(left) + str;
-};
-
 type POSItem = {
   id: string;
   code?: string;
@@ -45,7 +30,7 @@ type POSItem = {
   description: string;
   cost: number;
   in_stock: number;
-  category: string; // Required to match dialog
+  category: string;
 };
 
 type Customer = {
@@ -72,10 +57,8 @@ export default function POSPage() {
   const [selectedProducts, setSelectedProducts] = useState<POSProduct[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const [highlightedProductIndex, setHighlightedProductIndex] = useState<number | null>(null);
   const [receiptContent, setReceiptContent] = useState("");
   
-  // Dialog States
   const [isForDelivery, setIsForDelivery] = useState(false);
   const [showCustomerDialog, setShowCustomerDialog] = useState(false);
   const [showProductDialog, setShowProductDialog] = useState(false);
@@ -84,42 +67,24 @@ export default function POSPage() {
   const [editingProduct, setEditingProduct] = useState<POSItem | null>(null);
   const [productForTempEdit, setProductForTempEdit] = useState<POSProduct | null>(null);
 
-  // Refs for keyboard navigation
-  const customerRef = useRef<HTMLButtonElement>(null);
-  const paymentRef = useRef<HTMLButtonElement>(null);
   const productRef = useRef<HTMLInputElement>(null);
-  const quantityInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
     fetchProducts();
     fetchCustomers();
     fetchPaymentMethods();
-
     const recentCustomerId = localStorage.getItem("recentCustomerId");
     const recentPaymentMethodId = localStorage.getItem("recentPaymentMethodId");
-
     if (recentCustomerId) handleSelectCustomer(recentCustomerId);
     if (recentPaymentMethodId) handleSelectPaymentMethod(recentPaymentMethodId);
   }, []);
-
-  useEffect(() => {
-    if (selectedCustomer) localStorage.setItem("recentCustomerId", selectedCustomer.id);
-  }, [selectedCustomer]);
-
-  useEffect(() => {
-    if (paymentMethod) localStorage.setItem("recentPaymentMethodId", paymentMethod.id);
-  }, [paymentMethod]);
 
   const fetchProducts = async () => {
     try {
       const response = await fetch("/api/products");
       if (!response.ok) throw new Error("Failed to fetch products");
       const data = await response.json();
-      setProducts(data.map((item: any) => ({ 
-        ...item, 
-        id: item.id || item._id,
-        description: item.description || "" // Ensure string for dialog
-      })));
+      setProducts(data.map((item: any) => ({ ...item, id: item.id || item._id, description: item.description || "" })));
     } catch (error) { console.error("Error fetching products:", error); }
   };
 
@@ -143,11 +108,7 @@ export default function POSPage() {
 
   const handleAddProduct = (product: POSItem) => {
     if (selectedProducts.some((p) => p.id === product.id)) {
-      setSelectedProducts(
-        selectedProducts.map((p) =>
-          p.id === product.id ? { ...p, quantity: p.quantity + 1 } : p
-        )
-      );
+      setSelectedProducts(selectedProducts.map((p) => p.id === product.id ? { ...p, quantity: p.quantity + 1 } : p));
     } else {
       setSelectedProducts([...selectedProducts, { ...product, quantity: 1 }]);
     }
@@ -171,78 +132,86 @@ export default function POSPage() {
   };
 
   const handleQuantityChange = (productId: string, newQuantity: number) => {
-    setSelectedProducts(
-      selectedProducts.map((p) =>
-        p.id === productId ? { ...p, quantity: newQuantity } : p
-      )
-    );
+    setSelectedProducts(selectedProducts.map((p) => p.id === productId ? { ...p, quantity: newQuantity } : p));
   };
 
   const handleRemoveProduct = (productId: string) => {
     setSelectedProducts(selectedProducts.filter((p) => p.id !== productId));
   };
 
-  const generateReceiptContent = (title: string) => {
-    let content = "";
+  const generateReceiptContent = (title: string, deliveryActive: boolean) => {
+    let html = "";
     const shopName = "GRACE HARDWARE";
     const shopAddress = "BLK4 LOT29 Las Palmas Subdivision Cay Pombo Sta. Maria, Bulacan";
     const shopPhone = "09173002334 / 09287890410";
+    const receiptNum = "MC-" + Math.floor(100000 + Math.random() * 900000);
     const date = new Date().toLocaleDateString();
     const time = new Date().toLocaleTimeString();
-    const receiptNum = "MC-" + Math.floor(100000 + Math.random() * 900000);
-    const charWidth = 32;
-    
-    const lineWrapper = (text: string, bold = false, large = false) => {
-      const style = `display: block; ${bold ? 'font-weight: bold;' : ''} ${large ? 'font-size: 18px;' : ''}`;
-      return `<div class="receipt-line" style="${style}">${text}</div>`;
+
+    const line = (left: string, right: string = "", options: { bold?: boolean, size?: 'sm' | 'base' | 'lg', center?: boolean } = {}) => {
+      const isPadded = right !== "";
+      const fontSize = options.size === 'sm' ? '10px' : options.size === 'lg' ? '16px' : '12px';
+      const weight = options.bold ? 'bold' : 'normal';
+      const align = options.center ? 'center' : 'left';
+      
+      if (isPadded) {
+        return `<div class="receipt-line flex-row" style="font-weight: ${weight}; font-size: ${fontSize};">
+          <span style="flex: 1; text-align: left;">${left}</span>
+          <span style="text-align: right; margin-left: 10px;">${right}</span>
+        </div>`;
+      }
+      return `<div class="receipt-line" style="font-weight: ${weight}; font-size: ${fontSize}; text-align: ${align};">${left}</div>`;
     };
 
-    const separator = "-".repeat(charWidth);
-    const dash = "- ".repeat(charWidth / 2).trim();
+    const sep = () => `<div class="receipt-line" style="border-top: 1px dashed black; margin: 5px 0;"></div>`;
 
-    content += lineWrapper(center(shopName, charWidth), true, true);
-    content += lineWrapper(center(shopAddress, charWidth));
-    content += lineWrapper(center(shopPhone, charWidth));
-    content += lineWrapper(dash);
-    content += lineWrapper(center(title, charWidth), true);
-    content += lineWrapper(dash);
+    // Header
+    html += line(shopName, "", { bold: true, size: 'lg', center: true });
+    html += line(shopAddress, "", { size: 'sm', center: true });
+    html += line(shopPhone, "", { size: 'sm', center: true });
+    html += sep();
+    html += line(title, "", { bold: true, center: true });
+    html += sep();
 
-    content += lineWrapper(pad("DATE:", `${date} ${time}`, charWidth));
-    content += lineWrapper(pad("RCPT:", receiptNum, charWidth));
-    content += lineWrapper(pad("CASHIER:", "01 (ADMIN)", charWidth));
-    content += lineWrapper(dash);
+    // Meta
+    html += line("DATE:", `${date} ${time}`, { size: 'sm' });
+    html += line("RCPT:", receiptNum, { size: 'sm' });
+    html += line("CASHIER:", "01 (ADMIN)", { size: 'sm' });
+    html += sep();
 
-    content += lineWrapper(pad("QTY ITEM", "TOTAL", charWidth));
-    content += lineWrapper(separator);
+    // Items
+    html += line("QTY ITEM", "TOTAL", { bold: true });
+    html += `<div style="border-top: 1px solid black; margin-bottom: 5px;"></div>`;
 
-    selectedProducts.forEach((p) => {
-      const itemTotal = (p.price * p.quantity).toFixed(2);
-      content += lineWrapper(pad(`${p.quantity} ${p.name.toUpperCase().substring(0, 20)}`, itemTotal, charWidth));
-      content += lineWrapper(`  @ ${p.price.toFixed(2)}`);
+    selectedProducts.forEach(p => {
+      const total = (p.price * p.quantity).toFixed(2);
+      html += line(`${p.quantity} ${p.name.toUpperCase()}`, total);
+      html += line(`  @ ${p.price.toFixed(2)}`, "", { size: 'sm' });
     });
 
-    content += lineWrapper(dash);
+    // Total Section
+    html += `<div style="border-top: 2px solid black; margin: 5px 0;"></div>`;
     const totalVal = selectedProducts.reduce((sum, p) => sum + p.price * p.quantity, 0);
-    content += lineWrapper(pad("TOTAL", totalVal.toFixed(2), charWidth), true);
-    content += lineWrapper(dash);
+    html += line("TOTAL", totalVal.toFixed(2), { bold: true, size: 'lg' });
+    html += `<div style="border-top: 2px solid black; margin: 5px 0;"></div>`;
 
-    if (paymentMethod) {
-      content += lineWrapper(pad("TENDER:", paymentMethod.name.toUpperCase(), charWidth));
-    }
+    // Footer Info
+    if (paymentMethod) html += line("TENDER:", paymentMethod.name.toUpperCase(), { size: 'sm' });
     if (selectedCustomer) {
-      content += lineWrapper(pad("CUST:", selectedCustomer.name.toUpperCase(), charWidth));
-      if (isForDelivery && selectedCustomer.address) {
-        content += lineWrapper(`ADDR: ${selectedCustomer.address.toUpperCase()}`);
+      html += line("CUST:", selectedCustomer.name.toUpperCase(), { size: 'sm' });
+      if (deliveryActive && selectedCustomer.address) {
+        html += line("ADDRESS:", "", { bold: true, size: 'sm' });
+        html += `<div class="receipt-line" style="font-size: 10px; white-space: normal; line-height: 1.2;">${selectedCustomer.address.toUpperCase()}</div>`;
       }
     }
-    content += "\n";
 
-    content += lineWrapper(center("*** THANK YOU ***", charWidth));
-    content += lineWrapper(center("REPLACEMENT WITHIN", charWidth));
-    content += lineWrapper(center("7 DAYS WITH RECEIPT", charWidth));
-    content += "\n\n\n";
+    html += `<div style="margin-top: 15px;"></div>`;
+    html += line("*** THANK YOU ***", "", { center: true });
+    html += line("REPLACEMENT WITHIN", "", { size: 'sm', center: true });
+    html += line("7 DAYS WITH RECEIPT", "", { size: 'sm', center: true });
+    html += `<div style="margin-top: 30px;">.</div>`;
 
-    setReceiptContent(content);
+    setReceiptContent(html);
     setTimeout(() => window.print(), 300);
   };
 
@@ -251,9 +220,7 @@ export default function POSPage() {
       alert("Please select customer and payment method");
       return;
     }
-
     const totalVal = selectedProducts.reduce((sum, p) => sum + p.price * p.quantity, 0);
-
     try {
       const response = await fetch("/api/orders", {
         method: "POST",
@@ -261,20 +228,16 @@ export default function POSPage() {
         body: JSON.stringify({
           customer_id: selectedCustomer.id,
           paymentMethod: paymentMethod.name,
-          items: selectedProducts.map((p) => ({
-            product_id: p.id,
-            name: p.name,
-            quantity: p.quantity,
-            price: p.price,
-          })),
+          items: selectedProducts.map((p) => ({ product_id: p.id, name: p.name, quantity: p.quantity, price: p.price })),
           total_amount: totalVal,
           status: 'completed'
         }),
       });
-
       if (!response.ok) throw new Error("Failed to create order");
-
-      generateReceiptContent("CASH RECEIPT");
+      
+      // Inject current state directly to fix the address bug
+      generateReceiptContent("CASH RECEIPT", isForDelivery);
+      
       setSelectedProducts([]);
       setIsForDelivery(false);
     } catch (error) {
@@ -283,7 +246,6 @@ export default function POSPage() {
     }
   };
 
-  // CALLBACKS
   const handleSaveCustomer = (newCustomer: any) => {
     const mapped = { ...newCustomer, id: newCustomer._id || newCustomer.id };
     setCustomers((prev) => [...prev, mapped]);
@@ -294,26 +256,16 @@ export default function POSPage() {
   const handleSaveProductMaster = (updatedProduct: any) => {
     const mapped = { ...updatedProduct, id: updatedProduct._id || updatedProduct.id };
     setProducts((prev) => prev.map(p => p.id === mapped.id ? mapped : p));
-    setSelectedProducts((prev) => 
-      prev.map((p) => p.id === mapped.id ? { ...mapped, quantity: p.quantity } : p)
-    );
+    setSelectedProducts((prev) => prev.map((p) => p.id === mapped.id ? { ...mapped, quantity: p.quantity } : p));
     setEditingProduct(null);
     setShowProductDialog(false);
   };
 
   const handleSaveTempProduct = (updatedProduct: POSProduct) => {
-    setSelectedProducts((prev) => 
-      prev.map((p) => p.id === updatedProduct.id ? updatedProduct : p)
-    );
+    setSelectedProducts((prev) => prev.map((p) => p.id === updatedProduct.id ? updatedProduct : p));
     setProductForTempEdit(null);
     setShowTempEditDialog(false);
   };
-
-  const ShortcutBadge = ({ k }: { k: string }) => (
-    <span className="ml-2 inline-flex items-center rounded border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs font-medium text-gray-600">
-      {k}
-    </span>
-  );
 
   return (
     <div className="container mx-auto p-4">
@@ -328,38 +280,18 @@ export default function POSPage() {
         </CardHeader>
         <CardContent className="flex gap-4">
           <div className="flex-1">
-            <label className="mb-2 block text-sm font-medium">
-              Customer <ShortcutBadge k="F2" />
-            </label>
-            <Combobox
-              ref={customerRef}
-              items={customers}
-              placeholder="Select Customer"
-              onSelect={handleSelectCustomer}
-            />
+            <label className="mb-2 block text-sm font-medium">Customer</label>
+            <Combobox items={customers} placeholder="Select Customer" onSelect={handleSelectCustomer} />
             {selectedCustomer && (
               <div className="flex items-center space-x-2 mt-2">
-                <Checkbox 
-                  id="delivery" 
-                  checked={isForDelivery} 
-                  onCheckedChange={(checked) => setIsForDelivery(!!checked)} 
-                />
-                <label htmlFor="delivery" className="text-xs font-medium cursor-pointer">
-                  For Delivery (Print Address)
-                </label>
+                <Checkbox id="delivery" checked={isForDelivery} onCheckedChange={(checked) => setIsForDelivery(!!checked)} />
+                <label htmlFor="delivery" className="text-xs font-medium cursor-pointer">For Delivery (Print Address)</label>
               </div>
             )}
           </div>
           <div className="flex-1">
-            <label className="mb-2 block text-sm font-medium">
-              Payment Method <ShortcutBadge k="F3" />
-            </label>
-            <Combobox
-              ref={paymentRef}
-              items={paymentMethods}
-              placeholder="Select Payment Method"
-              onSelect={handleSelectPaymentMethod}
-            />
+            <label className="mb-2 block text-sm font-medium">Payment Method</label>
+            <Combobox items={paymentMethods} placeholder="Select Payment Method" onSelect={handleSelectPaymentMethod} />
           </div>
         </CardContent>
       </Card>
@@ -368,15 +300,8 @@ export default function POSPage() {
         <CardHeader>
           <CardTitle>Products</CardTitle>
           <div className="mt-2">
-            <label className="mb-2 block text-sm font-medium">
-              Add Product <ShortcutBadge k="F4" />
-            </label>
-            <ProductSearch
-              ref={productRef}
-              items={products}
-              placeholder="Select Product"
-              onSelect={handleSelectProduct}
-            />
+            <label className="mb-2 block text-sm font-medium">Add Product</label>
+            <ProductSearch ref={productRef} items={products} placeholder="Select Product" onSelect={handleSelectProduct} />
           </div>
         </CardHeader>
         <CardContent>
@@ -391,16 +316,14 @@ export default function POSPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {selectedProducts.map((product, index) => (
+              {selectedProducts.map((product) => (
                 <TableRow key={product.id}>
                   <TableCell>{product.name}</TableCell>
                   <TableCell>{formatCurrency(product.price)}</TableCell>
                   <TableCell>
                     <div className="flex items-center">
                       <input
-                        type="number"
-                        min="1"
-                        value={product.quantity}
+                        type="number" min="1" value={product.quantity}
                         onFocus={(e) => e.target.select()}
                         onChange={(e) => handleQuantityChange(product.id, parseInt(e.target.value))}
                         className="w-16 p-1 border rounded"
@@ -411,18 +334,10 @@ export default function POSPage() {
                   <TableCell>{formatCurrency(product.quantity * product.price)}</TableCell>
                   <TableCell>
                     <div className="flex gap-1">
-                      {/* CART ONLY EDIT */}
-                      <Button title="Edit for this sale only" size="icon" variant="ghost" onClick={() => {
-                        setProductForTempEdit(product);
-                        setShowTempEditDialog(true);
-                      }}>
+                      <Button title="Override" size="icon" variant="ghost" onClick={() => { setProductForTempEdit(product); setShowTempEditDialog(true); }}>
                         <Edit2Icon className="w-4 h-4 text-blue-500" />
                       </Button>
-                      {/* MASTER EDIT */}
-                      <Button title="Edit master product details" size="icon" variant="ghost" onClick={() => {
-                        setEditingProduct(product);
-                        setShowProductDialog(true);
-                      }}>
+                      <Button title="Edit Master" size="icon" variant="ghost" onClick={() => { setEditingProduct(product); setShowProductDialog(true); }}>
                         <FilePenIcon className="w-4 h-4" />
                       </Button>
                       <Button size="icon" variant="ghost" onClick={() => handleRemoveProduct(product.id)}>
@@ -439,42 +354,54 @@ export default function POSPage() {
           </div>
           <div className="mt-4 flex gap-2">
             <Button className="w-full sm:w-auto" onClick={handlePrintReceipt} disabled={selectedProducts.length === 0 || !selectedCustomer || !paymentMethod}>
-              Print Receipt <ShortcutBadge k="F9" />
+              Print Receipt
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      <CustomerDialog 
-        open={showCustomerDialog} 
-        onOpenChange={setShowCustomerDialog} 
-        onSave={handleSaveCustomer} 
-      />
-      
-      {/* Master Inventory Edit */}
-      <ProductDialog 
-        open={showProductDialog} 
-        onOpenChange={setShowProductDialog} 
-        product={editingProduct}
-        onSave={handleSaveProductMaster} 
-      />
-
-      {/* Transaction Only Edit */}
-      <POSProductEditDialog 
-        open={showTempEditDialog}
-        onOpenChange={setShowTempEditDialog}
-        product={productForTempEdit}
-        onSave={handleSaveTempProduct}
-      />
+      <CustomerDialog open={showCustomerDialog} onOpenChange={setShowCustomerDialog} onSave={handleSaveCustomer} />
+      <ProductDialog open={showProductDialog} onOpenChange={setShowProductDialog} product={editingProduct} onSave={handleSaveProductMaster} />
+      <POSProductEditDialog open={showTempEditDialog} onOpenChange={setShowTempEditDialog} product={productForTempEdit} onSave={handleSaveTempProduct} />
 
       <div id="printable-receipt" className="hidden print:block" dangerouslySetInnerHTML={{ __html: receiptContent }} />
       
       <style jsx global>{`
         @media print {
+          @page { 
+            margin: 0; 
+            size: 58mm auto;
+          }
+          body { 
+            margin: 0 !important; 
+            padding: 0 !important; 
+            background: white !important;
+          }
           body * { visibility: hidden !important; }
           #printable-receipt, #printable-receipt * { visibility: visible !important; }
-          #printable-receipt { position: fixed; left: 0; top: 0; width: 100%; text-align: center; }
-          .receipt-line { display: inline-block; width: 32ch; text-align: left; white-space: pre; font-family: monospace; font-size: 12px; }
+          #printable-receipt { 
+            position: relative !important; 
+            margin: 0 auto !important; 
+            padding: 5mm 2mm !important; 
+            width: 52mm !important;
+            background: white !important;
+            color: black !important;
+            font-family: 'Courier New', Courier, monospace !important;
+          }
+          .receipt-line { 
+            display: block !important; 
+            width: 100% !important; 
+            white-space: pre-wrap !important; 
+            margin: 0 !important; 
+            padding: 1px 0 !important; 
+            color: black !important;
+          }
+          .flex-row {
+            display: flex !important;
+            flex-direction: row !important;
+            justify-content: space-between !important;
+            align-items: flex-start !important;
+          }
         }
       `}</style>
     </div>
