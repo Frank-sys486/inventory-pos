@@ -144,26 +144,26 @@ export default function POSPage() {
     const shopName = "GRACE HARDWARE";
     const shopAddress = "BLK4 LOT29 Las Palmas Subdivision Cay Pombo Sta. Maria, Bulacan";
     const shopPhone = "09173002334 / 09287890410";
-    const receiptNum = "MC-" + Math.floor(100000 + Math.random() * 900000);
     const date = new Date().toLocaleDateString();
     const time = new Date().toLocaleTimeString();
+    const receiptNum = "MC-" + Math.floor(100000 + Math.random() * 900000);
 
     const line = (left: string, right: string = "", options: { bold?: boolean, size?: 'sm' | 'base' | 'lg', center?: boolean } = {}) => {
-      const isPadded = right !== "";
-      const fontSize = options.size === 'sm' ? '10px' : options.size === 'lg' ? '16px' : '12px';
+      const isSplit = right !== "";
+      const fontSize = options.size === 'sm' ? '9px' : options.size === 'lg' ? '14px' : '11px';
       const weight = options.bold ? 'bold' : 'normal';
       const align = options.center ? 'center' : 'left';
       
-      if (isPadded) {
+      if (isSplit) {
         return `<div class="receipt-line flex-row" style="font-weight: ${weight}; font-size: ${fontSize};">
-          <span style="flex: 1; text-align: left;">${left}</span>
-          <span style="text-align: right; margin-left: 10px;">${right}</span>
+          <span>${left}</span>
+          <span>${right}</span>
         </div>`;
       }
       return `<div class="receipt-line" style="font-weight: ${weight}; font-size: ${fontSize}; text-align: ${align};">${left}</div>`;
     };
 
-    const sep = () => `<div class="receipt-line" style="border-top: 1px dashed black; margin: 5px 0;"></div>`;
+    const sep = () => `<div class="receipt-line" style="border-top: 1px dashed black; margin: 4px 0;"></div>`;
 
     // Header
     html += line(shopName, "", { bold: true, size: 'lg', center: true });
@@ -173,7 +173,7 @@ export default function POSPage() {
     html += line(title, "", { bold: true, center: true });
     html += sep();
 
-    // Meta
+    // Meta Info
     html += line("DATE:", `${date} ${time}`, { size: 'sm' });
     html += line("RCPT:", receiptNum, { size: 'sm' });
     html += line("CASHIER:", "01 (ADMIN)", { size: 'sm' });
@@ -181,19 +181,19 @@ export default function POSPage() {
 
     // Items
     html += line("QTY ITEM", "TOTAL", { bold: true });
-    html += `<div style="border-top: 1px solid black; margin-bottom: 5px;"></div>`;
+    html += `<div style="border-top: 1px solid black; margin-bottom: 4px;"></div>`;
 
-    selectedProducts.forEach(p => {
-      const total = (p.price * p.quantity).toFixed(2);
-      html += line(`${p.quantity} ${p.name.toUpperCase()}`, total);
+    selectedProducts.forEach((p) => {
+      const itemTotal = (p.price * p.quantity).toFixed(2);
+      html += line(`${p.quantity} ${p.name.toUpperCase()}`, itemTotal);
       html += line(`  @ ${p.price.toFixed(2)}`, "", { size: 'sm' });
     });
 
     // Total Section
-    html += `<div style="border-top: 2px solid black; margin: 5px 0;"></div>`;
+    html += sep();
     const totalVal = selectedProducts.reduce((sum, p) => sum + p.price * p.quantity, 0);
     html += line("TOTAL", totalVal.toFixed(2), { bold: true, size: 'lg' });
-    html += `<div style="border-top: 2px solid black; margin: 5px 0;"></div>`;
+    html += sep();
 
     // Footer Info
     if (paymentMethod) html += line("TENDER:", paymentMethod.name.toUpperCase(), { size: 'sm' });
@@ -201,15 +201,15 @@ export default function POSPage() {
       html += line("CUST:", selectedCustomer.name.toUpperCase(), { size: 'sm' });
       if (deliveryActive && selectedCustomer.address) {
         html += line("ADDRESS:", "", { bold: true, size: 'sm' });
-        html += `<div class="receipt-line" style="font-size: 10px; white-space: normal; line-height: 1.2;">${selectedCustomer.address.toUpperCase()}</div>`;
+        html += `<div class="receipt-line" style="font-size: 9px; white-space: normal; line-height: 1.1;">${selectedCustomer.address.toUpperCase()}</div>`;
       }
     }
 
-    html += `<div style="margin-top: 15px;"></div>`;
+    html += `<div style="margin-top: 10px;"></div>`;
     html += line("*** THANK YOU ***", "", { center: true });
     html += line("REPLACEMENT WITHIN", "", { size: 'sm', center: true });
     html += line("7 DAYS WITH RECEIPT", "", { size: 'sm', center: true });
-    html += `<div style="margin-top: 30px;">.</div>`;
+    html += `<div style="margin-top: 20px;">.</div>`;
 
     setReceiptContent(html);
     setTimeout(() => window.print(), 300);
@@ -235,7 +235,6 @@ export default function POSPage() {
       });
       if (!response.ok) throw new Error("Failed to create order");
       
-      // Inject current state directly to fix the address bug
       generateReceiptContent("CASH RECEIPT", isForDelivery);
       
       setSelectedProducts([]);
@@ -301,7 +300,7 @@ export default function POSPage() {
           <CardTitle>Products</CardTitle>
           <div className="mt-2">
             <label className="mb-2 block text-sm font-medium">Add Product</label>
-            <ProductSearch ref={productRef} items={products} placeholder="Select Product" onSelect={handleSelectProduct} />
+            <ProductSearch items={products} placeholder="Select Product" onSelect={handleSelectProduct} />
           </div>
         </CardHeader>
         <CardContent>
@@ -368,24 +367,18 @@ export default function POSPage() {
       
       <style jsx global>{`
         @media print {
-          @page { 
-            margin: 0; 
-            size: 58mm auto;
-          }
-          body { 
-            margin: 0 !important; 
-            padding: 0 !important; 
-            background: white !important;
-          }
+          @page { margin: 0; size: 58mm auto; }
+          body { margin: 0 !important; padding: 0 !important; }
           body * { visibility: hidden !important; }
           #printable-receipt, #printable-receipt * { visibility: visible !important; }
           #printable-receipt { 
-            position: relative !important; 
-            margin: 0 auto !important; 
-            padding: 5mm 2mm !important; 
-            width: 52mm !important;
-            background: white !important;
-            color: black !important;
+            position: absolute !important; 
+            left: 50% !important; 
+            transform: translateX(-50%) !important;
+            top: 0 !important; 
+            width: 50mm !important; 
+            padding: 5mm 0 !important; 
+            margin: 0 !important;
             font-family: 'Courier New', Courier, monospace !important;
           }
           .receipt-line { 
@@ -394,7 +387,6 @@ export default function POSPage() {
             white-space: pre-wrap !important; 
             margin: 0 !important; 
             padding: 1px 0 !important; 
-            color: black !important;
           }
           .flex-row {
             display: flex !important;
