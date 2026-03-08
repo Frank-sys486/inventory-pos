@@ -1,7 +1,5 @@
 "use client";
 
-"use client";
-
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Card,
@@ -57,6 +55,7 @@ type Customer = {
   name: string;
   email?: string;
   phone?: string;
+  address?: string;
   status?: "active" | "inactive";
 };
 
@@ -64,200 +63,120 @@ export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
   const [showNewCustomerDialog, setShowNewCustomerDialog] = useState(false);
+  const [isEditCustomerDialogOpen, setIsEditCustomerDialogOpen] = useState(false);
+  const [isDeleteConfirmationOpen, setIsDeleteConfirmationOpen] = useState(false);
+  
   const [newCustomerName, setNewCustomerName] = useState("");
   const [newCustomerEmail, setNewCustomerEmail] = useState("");
   const [newCustomerPhone, setNewCustomerPhone] = useState("");
-  const [newCustomerStatus, setNewCustomerStatus] = useState<
-    "active" | "inactive"
-  >("active");
-  const [isEditCustomerDialogOpen, setIsEditCustomerDialogOpen] =
-    useState(false);
-  const [isDeleteConfirmationOpen, setIsDeleteConfirmationOpen] =
-    useState(false);
-  const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(
-    null
-  );
+  const [newCustomerAddress, setNewCustomerAddress] = useState("");
+  const [newCustomerStatus, setNewCustomerStatus] = useState<"active" | "inactive">("active");
+  
+  const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filters, setFilters] = useState({
-    status: "all",
-  });
-  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(
-    null
-  );
+  const [filters, setFilters] = useState({ status: "all" });
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchCustomers = async () => {
-      try {
-        const response = await fetch("/api/customers");
-        if (!response.ok) {
-          throw new Error("Failed to fetch customers");
-        }
-        const data = await response.json();
-        setCustomers(data.map((c: any) => ({ ...c, id: c._id })));
-      } catch (error) {
-        setError((error as Error).message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchCustomers();
   }, []);
 
+  const fetchCustomers = async () => {
+    try {
+      const response = await fetch("/api/customers");
+      if (!response.ok) throw new Error("Failed to fetch customers");
+      const data = await response.json();
+      setCustomers(data.map((c: any) => ({ ...c, id: c._id })));
+    } catch (error) {
+      setError((error as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const filteredCustomers = useMemo(() => {
     return customers.filter((customer) => {
-      if (filters.status !== "all" && customer.status !== filters.status) {
-        return false;
-      }
+      if (filters.status !== "all" && customer.status !== filters.status) return false;
       return (
         customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (customer.email && customer.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (customer.phone && customer.phone.includes(searchTerm))
+        (customer.phone && customer.phone.includes(searchTerm)) ||
+        (customer.address && customer.address.toLowerCase().includes(searchTerm.toLowerCase()))
       );
     });
   }, [customers, filters.status, searchTerm]);
 
-  const resetSelectedCustomer = () => {
+  const resetForm = () => {
     setSelectedCustomerId(null);
     setNewCustomerName("");
     setNewCustomerEmail("");
     setNewCustomerPhone("");
+    setNewCustomerAddress("");
     setNewCustomerStatus("active");
   };
 
   const handleAddCustomer = useCallback(async () => {
     if (!newCustomerName) return;
-
     try {
-      const newCustomer = {
+      const payload = {
         name: newCustomerName,
         email: newCustomerEmail,
         phone: newCustomerPhone,
+        address: newCustomerAddress,
         status: newCustomerStatus,
       };
       const response = await fetch("/api/customers", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(newCustomer),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Error creating customer");
-      }
+      if (!response.ok) throw new Error("Error creating customer");
 
-      const createdCustomer = await response.json();
-      setCustomers([...customers, createdCustomer]);
+      await fetchCustomers();
       setShowNewCustomerDialog(false);
-      resetSelectedCustomer();
-    } catch (error) {
-      console.error(error);
-    }
-  }, [
-    newCustomerName,
-    newCustomerEmail,
-    newCustomerPhone,
-    newCustomerStatus,
-    customers,
-  ]);
+      resetForm();
+    } catch (error) { console.error(error); }
+  }, [newCustomerName, newCustomerEmail, newCustomerPhone, newCustomerAddress, newCustomerStatus]);
 
   const handleEditCustomer = useCallback(async () => {
     if (!selectedCustomerId) return;
     try {
-      const updatedCustomer = {
-        id: selectedCustomerId,
+      const payload = {
         name: newCustomerName,
         email: newCustomerEmail,
         phone: newCustomerPhone,
+        address: newCustomerAddress,
         status: newCustomerStatus,
       };
       const response = await fetch(`/api/customers/${selectedCustomerId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(updatedCustomer),
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Error updating customer");
-      }
+      if (!response.ok) throw new Error("Error updating customer");
 
-      const updatedCustomerData = await response.json();
-      setCustomers(
-        customers.map((c) =>
-          c.id === updatedCustomerData.id ? updatedCustomerData : c
-        )
-      );
+      await fetchCustomers();
       setIsEditCustomerDialogOpen(false);
-      resetSelectedCustomer();
-    } catch (error) {
-      console.error(error);
-    }
-  }, [
-    selectedCustomerId,
-    newCustomerName,
-    newCustomerEmail,
-    newCustomerPhone,
-    newCustomerStatus,
-    customers,
-  ]);
+      resetForm();
+    } catch (error) { console.error(error); }
+  }, [selectedCustomerId, newCustomerName, newCustomerEmail, newCustomerPhone, newCustomerAddress, newCustomerStatus]);
 
   const handleDeleteCustomer = useCallback(async () => {
     if (!customerToDelete) return;
     try {
-      const response = await fetch(`/api/customers/${customerToDelete.id}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Error deleting customer");
-      }
-
+      const response = await fetch(`/api/customers/${customerToDelete.id}`, { method: "DELETE" });
+      if (!response.ok) throw new Error("Error deleting customer");
       setCustomers(customers.filter((c) => c.id !== customerToDelete.id));
       setIsDeleteConfirmationOpen(false);
       setCustomerToDelete(null);
-    } catch (error) {
-      console.error(error);
-    }
+    } catch (error) { console.error(error); }
   }, [customerToDelete, customers]);
 
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(e.target.value);
-  };
-
-  const handleFilterChange = (value: string) => {
-    setFilters((prevFilters) => ({
-      ...prevFilters,
-      status: value,
-    }));
-  };
-
-  if (loading) {
-    return (
-      <div className="h-[80vh] flex items-center justify-center">
-        <Loader2Icon className="mx-auto h-12 w-12 animate-spin" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="container mx-auto p-4">
-        <h1 className="text-2xl font-bold mb-4">Customers</h1>
-        <Card>
-          <CardContent>
-            <p className="text-red-500">{error}</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  if (loading) return <div className="h-[80vh] flex items-center justify-center"><Loader2Icon className="mx-auto h-12 w-12 animate-spin" /></div>;
 
   return (
     <Card className="flex flex-col gap-6 p-6">
@@ -269,46 +188,25 @@ export default function CustomersPage() {
                 type="text"
                 placeholder="Search customers..."
                 value={searchTerm}
-                onChange={handleSearch}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 className="pr-8"
               />
               <SearchIcon className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-1">
-                  <FilterIcon className="w-4 h-4" />
-                  <span>Filters</span>
-                </Button>
+                <Button variant="outline" size="sm" className="gap-1"><FilterIcon className="w-4 h-4" /><span>Filters</span></Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuCheckboxItem
-                  checked={filters.status === "all"}
-                  onCheckedChange={() => handleFilterChange("all")}
-                >
-                  All Statuses
-                </DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem
-                  checked={filters.status === "active"}
-                  onCheckedChange={() => handleFilterChange("active")}
-                >
-                  Active
-                </DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem
-                  checked={filters.status === "inactive"}
-                  onCheckedChange={() => handleFilterChange("inactive")}
-                >
-                  Inactive
-                </DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem checked={filters.status === "all"} onCheckedChange={() => setFilters({ status: "all" })}>All Statuses</DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem checked={filters.status === "active"} onCheckedChange={() => setFilters({ status: "active" })}>Active</DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem checked={filters.status === "inactive"} onCheckedChange={() => setFilters({ status: "inactive" })}>Inactive</DropdownMenuCheckboxItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-          <Button size="sm" onClick={() => setShowNewCustomerDialog(true)}>
-            <PlusCircle className="w-4 h-4 mr-2" />
-            Add Customer
-          </Button>
+          <Button size="sm" onClick={() => setShowNewCustomerDialog(true)}><PlusCircle className="w-4 h-4 mr-2" />Add Customer</Button>
         </div>
       </CardHeader>
       <CardContent className="p-0">
@@ -317,8 +215,8 @@ export default function CustomersPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
                 <TableHead>Phone</TableHead>
+                <TableHead>Address</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
@@ -326,9 +224,9 @@ export default function CustomersPage() {
             <TableBody>
               {filteredCustomers.map((customer) => (
                 <TableRow key={customer.id}>
-                  <TableCell>{customer.name}</TableCell>
-                  <TableCell>{customer.email}</TableCell>
-                  <TableCell>{customer.phone}</TableCell>
+                  <TableCell className="font-medium">{customer.name}</TableCell>
+                  <TableCell>{customer.phone || "N/A"}</TableCell>
+                  <TableCell className="max-w-[200px] truncate">{customer.address || "N/A"}</TableCell>
                   <TableCell>{customer.status}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
@@ -340,12 +238,12 @@ export default function CustomersPage() {
                           setNewCustomerName(customer.name);
                           setNewCustomerEmail(customer.email || "");
                           setNewCustomerPhone(customer.phone || "");
+                          setNewCustomerAddress(customer.address || "");
                           setNewCustomerStatus(customer.status || "active");
                           setIsEditCustomerDialogOpen(true);
                         }}
                       >
                         <FilePenIcon className="w-4 h-4" />
-                        <span className="sr-only">Edit</span>
                       </Button>
                       <Button
                         size="icon"
@@ -356,7 +254,6 @@ export default function CustomersPage() {
                         }}
                       >
                         <Trash2 className="w-4 h-4" />
-                        <span className="sr-only">Delete</span>
                       </Button>
                     </div>
                   </TableCell>
@@ -366,9 +263,6 @@ export default function CustomersPage() {
           </Table>
         </div>
       </CardContent>
-      <CardFooter className="flex justify-between items-center">
-        {/* Pagination can be added here if needed */}
-      </CardFooter>
 
       <Dialog
         open={showNewCustomerDialog || isEditCustomerDialogOpen}
@@ -376,62 +270,36 @@ export default function CustomersPage() {
           if (!open) {
             setShowNewCustomerDialog(false);
             setIsEditCustomerDialogOpen(false);
-            resetSelectedCustomer();
+            resetForm();
           }
         }}
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {showNewCustomerDialog ? "Create New Customer" : "Edit Customer"}
-            </DialogTitle>
-            <DialogDescription>
-              {showNewCustomerDialog
-                ? "Enter the details of the new customer."
-                : "Update the details of the existing customer."}
-            </DialogDescription>
+            <DialogTitle>{showNewCustomerDialog ? "Create New Customer" : "Edit Customer"}</DialogTitle>
+            <DialogDescription>{showNewCustomerDialog ? "Enter details for the new customer." : "Update details for the existing customer."}</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name">
-                Name <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="name"
-                value={newCustomerName}
-                onChange={(e) => setNewCustomerName(e.target.value)}
-                className="col-span-3"
-              />
+              <Label htmlFor="name" className="text-right">Name *</Label>
+              <Input id="name" value={newCustomerName} onChange={(e) => setNewCustomerName(e.target.value)} className="col-span-3" />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                value={newCustomerEmail}
-                onChange={(e) => setNewCustomerEmail(e.target.value)}
-                className="col-span-3"
-              />
+              <Label htmlFor="phone" className="text-right">Phone</Label>
+              <Input id="phone" value={newCustomerPhone} onChange={(e) => setNewCustomerPhone(e.target.value)} className="col-span-3" />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="phone">Phone</Label>
-              <Input
-                id="phone"
-                value={newCustomerPhone}
-                onChange={(e) => setNewCustomerPhone(e.target.value)}
-                className="col-span-3"
-              />
+              <Label htmlFor="address" className="text-right">Address</Label>
+              <Input id="address" value={newCustomerAddress} onChange={(e) => setNewCustomerAddress(e.target.value)} className="col-span-3" placeholder="For delivery purposes" />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="status">Status</Label>
-              <Select
-                value={newCustomerStatus}
-                onValueChange={(value: "active" | "inactive") =>
-                  setNewCustomerStatus(value)
-                }
-              >
-                <SelectTrigger id="status" className="col-span-3">
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
+              <Label htmlFor="email" className="text-right">Email</Label>
+              <Input id="email" value={newCustomerEmail} onChange={(e) => setNewCustomerEmail(e.target.value)} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="status" className="text-right">Status</Label>
+              <Select value={newCustomerStatus} onValueChange={(value: "active" | "inactive") => setNewCustomerStatus(value)}>
+                <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="inactive">Inactive</SelectItem>
@@ -440,49 +308,21 @@ export default function CustomersPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setShowNewCustomerDialog(false);
-                setIsEditCustomerDialogOpen(false);
-                resetSelectedCustomer();
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={
-                showNewCustomerDialog ? handleAddCustomer : handleEditCustomer
-              }
-            >
-              {showNewCustomerDialog ? "Create Customer" : "Update Customer"}
-            </Button>
+            <Button variant="secondary" onClick={() => { setShowNewCustomerDialog(false); setIsEditCustomerDialogOpen(false); resetForm(); }}>Cancel</Button>
+            <Button onClick={showNewCustomerDialog ? handleAddCustomer : handleEditCustomer}>{showNewCustomerDialog ? "Create Customer" : "Update Customer"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog
-        open={isDeleteConfirmationOpen}
-        onOpenChange={setIsDeleteConfirmationOpen}
-      >
+      <Dialog open={isDeleteConfirmationOpen} onOpenChange={setIsDeleteConfirmationOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Confirm Deletion</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete this customer? This action cannot be
-              undone.
-            </DialogDescription>
+            <DialogDescription>Are you sure you want to delete this customer?</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button
-              variant="secondary"
-              onClick={() => setIsDeleteConfirmationOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={handleDeleteCustomer}>
-              Delete
-            </Button>
+            <Button variant="secondary" onClick={() => setIsDeleteConfirmationOpen(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDeleteCustomer}>Delete</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -3,7 +3,10 @@ import Credentials from "next-auth/providers/credentials"
 
 export const authConfig = {
   secret: process.env.AUTH_SECRET || "finopenpos-secure-fallback-secret-12345-abcde",
-  session: { strategy: "jwt" },
+  session: { 
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+  },
   pages: {
     signIn: '/login',
   },
@@ -26,7 +29,7 @@ export const authConfig = {
         if (isLoggedIn) return true
         return false // Redirect unauthenticated users to login page
       } else if (isLoggedIn && (nextUrl.pathname === '/login' || nextUrl.pathname === '/')) {
-        return Response.redirect(new URL('/admin', nextUrl))
+        return Response.redirect(new URL('/admin', nextUrl.origin))
       }
       return true
     },

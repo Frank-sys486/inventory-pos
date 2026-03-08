@@ -10,25 +10,20 @@ export async function login(formData: FormData) {
   const password = formData.get('password') as string;
 
   try {
-    const result = await signIn('credentials', {
+    await signIn('credentials', {
       email,
       password,
-      redirect: false,
+      redirectTo: '/admin',
     });
-    
-    if (result?.error) {
-        redirect('/error');
-    }
   } catch (error) {
-    if (error instanceof Error && error.message.includes('NEXT_REDIRECT')) {
+    if (error instanceof Error) {
+      if (error.message.includes('NEXT_REDIRECT')) {
         throw error;
+      }
+      console.error('Login error:', error.message);
     }
-    console.error('Login error:', error);
     redirect('/error');
   }
-
-  revalidatePath('/admin', 'layout');
-  redirect('/admin');
 }
 
 export async function signup(formData: FormData) {

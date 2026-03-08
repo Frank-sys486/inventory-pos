@@ -48,12 +48,17 @@ try {
 } catch (e) {
   log(`Env Load Error: ${e.message}`);
 }
+let serverInstance = null;
 
 async function startServer() {
+  if (serverInstance) return serverInstance; // Prevent double startup
+
   try {
     const next = require('next');
     const dir = isPackaged ? baseDir.replace('app.asar', 'app.asar.unpacked') : baseDir;
-    
+
+    log(`Next.js Root: ${dir}`);
+
     // Explicitly set environment for Next.js
     process.env.DATA_PATH = dataPath;
     process.env.AUTH_TRUST_HOST = "true";
@@ -63,13 +68,13 @@ async function startServer() {
       hostname: '127.0.0.1', 
       dir: dir 
     });
-    
+
     const handler = nextApp.getRequestHandler();
     await nextApp.prepare();
-    
+
     const server = http.createServer((req, res) => handler(req, res));
 
-    return new Promise((resolve, reject) => {
+    serverInstance = new Promise((resolve, reject) => {
       // Try port 3000 first, then fallback to dynamic
       const port = 3000;
       server.listen(port, '127.0.0.1', () => {
@@ -78,7 +83,7 @@ async function startServer() {
         log(`Server active on: ${url}`);
         resolve(port);
       });
-      
+
       server.on('error', (e) => {
         if (e.code === 'EADDRINUSE') {
           log("Port 3000 busy, using dynamic port...");
@@ -94,11 +99,11 @@ async function startServer() {
         }
       });
     });
+    return serverInstance;
   } catch (err) {
     return { error: err.message, stack: err.stack };
   }
 }
-
 function getHWID() {
   try {
     if (process.platform === "win32") {

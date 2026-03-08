@@ -8,8 +8,12 @@ if (!process.env.AUTH_SECRET) {
   process.env.AUTH_SECRET = "finopenpos-secure-fallback-secret-12345-abcde";
 }
 
+// Enable automatic host trusting if NEXTAUTH_URL is missing
+process.env.AUTH_TRUST_HOST = "true";
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
+  trustHost: true,
   secret: process.env.AUTH_SECRET || "finopenpos-secure-fallback-secret-12345-abcde",
   session: { strategy: "jwt" }, // PouchDB doesn't use an adapter session
   providers: [
