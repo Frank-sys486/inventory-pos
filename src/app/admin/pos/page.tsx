@@ -376,10 +376,11 @@ export default function POSPage() {
             left: 50% !important; 
             transform: translateX(-50%) !important;
             top: 0 !important; 
-            width: 50mm !important; 
+            width: 42mm !important; // Adjusted width for 130% zoom
             padding: 5mm 0 !important; 
             margin: 0 !important;
             font-family: 'Courier New', Courier, monospace !important;
+            zoom: 1.3; // Scale everything by 130%
           }
           .receipt-line { 
             display: block !important; 
