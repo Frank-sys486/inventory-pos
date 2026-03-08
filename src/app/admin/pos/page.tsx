@@ -169,8 +169,8 @@ export default function POSPage() {
   const generateReceiptContent = (title: string, deliveryActive: boolean, orderId?: string) => {
     let html = "";
     const shopName = "GRACE HARDWARE";
-    const shopAddress = "BLK4 LOT29 Las Palmas Subdivision Cay Pombo Sta. Maria, Bulacan";
-    const shopPhone = "09173002334 / 09287890410";
+    const shopAddress = "B4 L29 Las Palmas";
+    const shopPhone = "09173002334";
     const date = new Date().toLocaleDateString();
     const time = new Date().toLocaleTimeString();
     const receiptNum = "MC-" + Math.floor(100000 + Math.random() * 900000);

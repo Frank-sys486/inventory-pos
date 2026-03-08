@@ -5,12 +5,19 @@ const http = require('http');
 const fs = require('fs');
 
 /**
- * FINAL PRODUCTION ARCHITECTURE - WINDOWS FOCUS
- * Using 127.0.0.1 consistently to avoid DNS/localhost issues on Windows.
+ * HARDENED PRODUCTION ARCHITECTURE
+ * Security is 'baked-in' to the binary to prevent user tampering.
  */
 
 const isPackaged = app.isPackaged;
 const baseDir = __dirname;
+
+// --- CRITICAL: HARDCODED SECURITY CONFIGURATION ---
+// This cannot be modified by the end-user as it lives in the ASAR.
+const ALLOWED_HWID = "00000000-0000-0000-0000-309C232230F0"; 
+const MASTER_ADMIN_EMAIL = "admin@pos.com";
+const MASTER_ADMIN_PASSWORD = "admin123";
+const PERMANENT_AUTH_SECRET = "finopenpos-ultra-secure-key-2026-xyz";
 
 let userDataPath;
 try {
@@ -26,7 +33,13 @@ if (!fs.existsSync(dataPath)) {
   fs.mkdirSync(dataPath, { recursive: true });
 }
 
+// 1. Force inject security into environment for the Next.js process
 process.env.DATA_PATH = dataPath;
+process.env.AUTH_TRUST_HOST = "true";
+process.env.AUTH_SECRET = PERMANENT_AUTH_SECRET;
+process.env.ADMIN_EMAIL = MASTER_ADMIN_EMAIL;
+process.env.ADMIN_PASSWORD = MASTER_ADMIN_PASSWORD;
+process.env.ALLOWED_HWID = ALLOWED_HWID;
 
 function log(msg) {
   const line = `[${new Date().toISOString()}] ${msg}\n`;
@@ -34,48 +47,37 @@ function log(msg) {
   console.log(msg);
 }
 
-// Load .env variables early
+// Still load .env for non-security settings if developer wants, 
+// but critical security is already forced above.
 try {
   const { loadEnvConfig } = require('@next/env');
   const envDir = isPackaged ? process.resourcesPath : baseDir;
-  log(`Loading Env from: ${envDir}`);
   loadEnvConfig(envDir);
-
-  if (!process.env.AUTH_SECRET) {
-    process.env.AUTH_SECRET = "finopenpos-secure-fallback-secret-12345-abcde";
-  }
-  process.env.AUTH_TRUST_HOST = "true";
 } catch (e) {
-  log(`Env Load Error: ${e.message}`);
+  log(`Optional Env Load Skip: ${e.message}`);
 }
+
 let serverInstance = null;
 
 async function startServer() {
-  if (serverInstance) return serverInstance; // Prevent double startup
+  if (serverInstance) return serverInstance;
 
   try {
     const next = require('next');
     const dir = isPackaged ? baseDir.replace('app.asar', 'app.asar.unpacked') : baseDir;
-
-    log(`Next.js Root: ${dir}`);
-
-    // Explicitly set environment for Next.js
+    
+    // Ensure forced security variables are available to Next.js
     process.env.DATA_PATH = dataPath;
     process.env.AUTH_TRUST_HOST = "true";
+    process.env.AUTH_SECRET = PERMANENT_AUTH_SECRET;
 
-    const nextApp = next({ 
-      dev: false, 
-      hostname: '127.0.0.1', 
-      dir: dir 
-    });
-
+    const nextApp = next({ dev: false, hostname: '127.0.0.1', dir: dir });
     const handler = nextApp.getRequestHandler();
     await nextApp.prepare();
-
+    
     const server = http.createServer((req, res) => handler(req, res));
 
     serverInstance = new Promise((resolve, reject) => {
-      // Try port 3000 first, then fallback to dynamic
       const port = 3000;
       server.listen(port, '127.0.0.1', () => {
         const url = `http://127.0.0.1:${port}`;
@@ -83,20 +85,18 @@ async function startServer() {
         log(`Server active on: ${url}`);
         resolve(port);
       });
-
+      
       server.on('error', (e) => {
         if (e.code === 'EADDRINUSE') {
-          log("Port 3000 busy, using dynamic port...");
+          log("Port 3000 busy, using dynamic...");
           server.listen(0, '127.0.0.1', () => {
             const dPort = server.address().port;
             const dUrl = `http://127.0.0.1:${dPort}`;
             process.env.NEXTAUTH_URL = dUrl;
-            log(`Server active on dynamic: ${dUrl}`);
+            log(`Dynamic active: ${dUrl}`);
             resolve(dPort);
           });
-        } else {
-          reject(e);
-        }
+        } else { reject(e); }
       });
     });
     return serverInstance;
@@ -104,6 +104,7 @@ async function startServer() {
     return { error: err.message, stack: err.stack };
   }
 }
+
 function getHWID() {
   try {
     if (process.platform === "win32") {
@@ -126,16 +127,15 @@ async function createWindow() {
   });
 
   const isDevMode = process.env.DEVELOPER_MODE === 'true' || !isPackaged;
-  if (isDevMode) {
-    win.webContents.openDevTools();
-  }
+  if (isDevMode) win.webContents.openDevTools();
 
   const currentHWID = getHWID().toUpperCase();
-  const allowedHWID = (process.env.ALLOWED_HWID || "00000000-0000-0000-0000-309C232230F0").toUpperCase().trim();
 
-  if (allowedHWID !== "DEVELOPMENT_MODE" && currentHWID !== allowedHWID) {
+  // SECURE HARDWARE LOCK
+  if (ALLOWED_HWID !== "DEVELOPMENT_MODE" && currentHWID !== ALLOWED_HWID) {
+    log(`BLOCK: Unauthorized Hardware [${currentHWID}]`);
     win.loadFile(path.join(baseDir, 'unauthorized.html'), {
-      query: { hwid: currentHWID, expectedHwid: allowedHWID }
+      query: { hwid: currentHWID, expectedHwid: "LOCKED_BY_ADMIN" }
     });
     return;
   }
@@ -143,7 +143,6 @@ async function createWindow() {
   win.loadURL('data:text/html,<body style="background:#111;color:white;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif"><h1>FinOpenPOS Initializing...</h1></body>');
 
   const result = await startServer();
-  
   if (result.error) {
     const errorHtml = `<body style="background:#450a0a;color:white;padding:40px;font-family:monospace"><h1>CRITICAL ERROR</h1><pre>${result.error}</pre></body>`;
     win.loadURL(`data:text/html,${encodeURIComponent(errorHtml)}`);
