@@ -21,6 +21,21 @@ import { ProductDialog } from "@/components/pos/product-dialog";
 import { POSProductEditDialog } from "@/components/pos/product-edit-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 
+const pad = (left: string, right: string, width = 30) => {
+  const leftStr = String(left);
+  const rightStr = String(right);
+  const space = width - leftStr.length - rightStr.length;
+  if (space < 0) return leftStr + " " + rightStr;
+  return leftStr + " ".repeat(space) + rightStr;
+};
+
+const center = (text: string, width = 30) => {
+  const str = String(text);
+  const space = Math.max(0, width - str.length);
+  const left = Math.floor(space / 2);
+  return " ".repeat(left) + str;
+};
+
 type POSItem = {
   id: string;
   code?: string;
@@ -78,6 +93,14 @@ export default function POSPage() {
     if (recentCustomerId) handleSelectCustomer(recentCustomerId);
     if (recentPaymentMethodId) handleSelectPaymentMethod(recentPaymentMethodId);
   }, []);
+
+  useEffect(() => {
+    if (selectedCustomer) localStorage.setItem("recentCustomerId", selectedCustomer.id);
+  }, [selectedCustomer]);
+
+  useEffect(() => {
+    if (paymentMethod) localStorage.setItem("recentPaymentMethodId", paymentMethod.id);
+  }, [paymentMethod]);
 
   const fetchProducts = async () => {
     try {
@@ -139,7 +162,7 @@ export default function POSPage() {
     setSelectedProducts(selectedProducts.filter((p) => p.id !== productId));
   };
 
-  const generateReceiptContent = (title: string, deliveryActive: boolean) => {
+  const generateReceiptContent = (title: string, deliveryActive: boolean, orderId?: string) => {
     let html = "";
     const shopName = "GRACE HARDWARE";
     const shopAddress = "BLK4 LOT29 Las Palmas Subdivision Cay Pombo Sta. Maria, Bulacan";
@@ -209,6 +232,13 @@ export default function POSPage() {
     html += line("*** THANK YOU ***", "", { center: true });
     html += line("REPLACEMENT WITHIN", "", { size: 'sm', center: true });
     html += line("7 DAYS WITH RECEIPT", "", { size: 'sm', center: true });
+    
+    if (orderId) {
+      html += `<div style="margin-top: 10px; border-top: 1px solid #eee; padding-top: 5px;"></div>`;
+      html += line("ORDER ID:", "", { size: 'sm', center: true });
+      html += line(orderId, "", { size: 'sm', center: true });
+    }
+
     html += `<div style="margin-top: 20px;">.</div>`;
 
     setReceiptContent(html);
@@ -235,7 +265,8 @@ export default function POSPage() {
       });
       if (!response.ok) throw new Error("Failed to create order");
       
-      generateReceiptContent("CASH RECEIPT", isForDelivery);
+      const createdOrder = await response.json();
+      generateReceiptContent("CASH RECEIPT", isForDelivery, createdOrder._id || createdOrder.id);
       
       setSelectedProducts([]);
       setIsForDelivery(false);
@@ -266,6 +297,12 @@ export default function POSPage() {
     setShowTempEditDialog(false);
   };
 
+  const ShortcutBadge = ({ k }: { k: string }) => (
+    <span className="ml-2 inline-flex items-center rounded border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px] font-bold text-gray-500">
+      {k}
+    </span>
+  );
+
   return (
     <div className="container mx-auto p-4">
       <Card className="mb-4">
@@ -279,7 +316,9 @@ export default function POSPage() {
         </CardHeader>
         <CardContent className="flex gap-4">
           <div className="flex-1">
-            <label className="mb-2 block text-sm font-medium">Customer</label>
+            <label className="mb-2 block text-sm font-medium">
+              Customer <ShortcutBadge k="F2" />
+            </label>
             <Combobox items={customers} placeholder="Select Customer" onSelect={handleSelectCustomer} />
             {selectedCustomer && (
               <div className="flex items-center space-x-2 mt-2">
@@ -289,7 +328,9 @@ export default function POSPage() {
             )}
           </div>
           <div className="flex-1">
-            <label className="mb-2 block text-sm font-medium">Payment Method</label>
+            <label className="mb-2 block text-sm font-medium">
+              Payment Method <ShortcutBadge k="F3" />
+            </label>
             <Combobox items={paymentMethods} placeholder="Select Payment Method" onSelect={handleSelectPaymentMethod} />
           </div>
         </CardContent>
@@ -299,7 +340,9 @@ export default function POSPage() {
         <CardHeader>
           <CardTitle>Products</CardTitle>
           <div className="mt-2">
-            <label className="mb-2 block text-sm font-medium">Add Product</label>
+            <label className="mb-2 block text-sm font-medium">
+              Add Product <ShortcutBadge k="F4" />
+            </label>
             <ProductSearch items={products} placeholder="Select Product" onSelect={handleSelectProduct} />
           </div>
         </CardHeader>
@@ -353,7 +396,7 @@ export default function POSPage() {
           </div>
           <div className="mt-4 flex gap-2">
             <Button className="w-full sm:w-auto" onClick={handlePrintReceipt} disabled={selectedProducts.length === 0 || !selectedCustomer || !paymentMethod}>
-              Print Receipt
+              Print Receipt <ShortcutBadge k="F9" />
             </Button>
           </div>
         </CardContent>
@@ -376,11 +419,11 @@ export default function POSPage() {
             left: 50% !important; 
             transform: translateX(-50%) !important;
             top: 0 !important; 
-            width: 42mm !important; // Adjusted width for 130% zoom
+            width: 42mm !important; 
             padding: 5mm 0 !important; 
             margin: 0 !important;
             font-family: 'Courier New', Courier, monospace !important;
-            zoom: 1.3; // Scale everything by 130%
+            zoom: 1.3;
           }
           .receipt-line { 
             display: block !important; 
