@@ -35,6 +35,7 @@ import {
   LoaderIcon,
   Loader2Icon,
   ChevronsUpDown,
+  AlertCircle,
 } from "lucide-react";
 import {
   Dialog,
@@ -74,8 +75,6 @@ export default function Products() {
     category: "all",
     inStock: "all",
   });
-  const [currentPage, setCurrentPage] = useState(1);
-  const [productsPerPage] = useState(10);
   const [loading, setLoading] = useState(true);
   const [isAddProductDialogOpen, setIsAddProductDialogOpen] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
@@ -95,6 +94,27 @@ export default function Products() {
     const cats = new Set(products.map(p => p.category || "Uncategorized"));
     return Array.from(cats).sort();
   }, [products]);
+
+  // Similarity Search Logic
+  const similarProducts = useMemo(() => {
+    if (!productName || productName.length < 2) return [];
+    
+    const queryWords = productName.toLowerCase().split(/\s+/).filter(w => w.length > 0);
+    
+    return products
+      .filter(p => p.id !== selectedProductId) // Don't match self when editing
+      .map(p => {
+        const targetName = p.name.toLowerCase();
+        // Count how many query words are present in the target name
+        const matches = queryWords.filter(word => targetName.includes(word)).length;
+        const score = matches / queryWords.length;
+        return { product: p, score };
+      })
+      .filter(item => item.score > 0.3) // Adjust threshold as needed
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5)
+      .map(item => item.product);
+  }, [productName, products, selectedProductId]);
 
   const resetSelectedProduct = () => {
     setSelectedProductId(null);
@@ -140,7 +160,6 @@ export default function Products() {
         resetSelectedProduct();
       } else {
         const errorData = await response.json();
-        console.error("Failed to add product:", errorData);
         alert(`Failed to add product: ${errorData.error || 'Unknown error'}`);
       }
     } catch (error) {
@@ -184,9 +203,6 @@ export default function Products() {
         );
         setIsEditProductDialogOpen(false);
         resetSelectedProduct();
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Failed to update product: ${response.status} ${response.statusText}`);
       }
     } catch (error) {
       console.error("Error updating product:", error);
@@ -205,8 +221,6 @@ export default function Products() {
         setProducts(products.filter((p) => p.id !== productToDelete.id));
         setIsDeleteConfirmationOpen(false);
         setProductToDelete(null);
-      } else {
-        console.error("Failed to delete product");
       }
     } catch (error) {
       console.error("Error deleting product:", error);
@@ -234,19 +248,16 @@ export default function Products() {
 
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
-      // 1. Search filter (Name or Category)
       const matchesSearch = 
         product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (product.category && product.category.toLowerCase().includes(searchTerm.toLowerCase()));
       
       if (!matchesSearch) return false;
 
-      // 2. Category filter
       if (filters.category !== "all" && product.category !== filters.category) {
         return false;
       }
 
-      // 3. Stock filter
       if (filters.inStock !== "all") {
         const stock = product.in_stock || 0;
         if (filters.inStock === "in-stock" && stock <= 0) return false;
@@ -258,22 +269,8 @@ export default function Products() {
     });
   }, [products, filters.category, filters.inStock, searchTerm]);
 
-  const indexOfLastProduct = currentPage * productsPerPage;
-  const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
-  const currentProducts = filteredProducts.slice(
-    indexOfFirstProduct,
-    indexOfLastProduct
-  );
-
-  const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
-
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-  };
-
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
-    setCurrentPage(1);
   };
 
   const handleFilterChange = (type: "category" | "inStock", value: string) => {
@@ -281,7 +278,6 @@ export default function Products() {
       ...prevFilters,
       [type]: value,
     }));
-    setCurrentPage(1);
   };
 
   if (loading) {
@@ -294,7 +290,7 @@ export default function Products() {
 
   return (
     <>
-      <Card className="flex flex-col gap-6 p-6">
+      <Card className="flex flex-col gap-6 p-6 h-[calc(100vh-100px)]">
         <CardHeader className="p-0">
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-bold">Items</h1>
@@ -340,8 +336,8 @@ export default function Products() {
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="p-0">
-          <div className="px-6 py-4 bg-muted/30 border-b flex flex-wrap items-center justify-between gap-4 text-sm">
+        <CardContent className="p-0 flex flex-col flex-1 overflow-hidden">
+          <div className="px-6 py-4 bg-muted/30 border-b flex flex-wrap items-center justify-between gap-4 text-sm shrink-0">
             <div className="flex gap-6">
               <div className="flex flex-col">
                 <span className="text-muted-foreground font-medium uppercase text-[10px]">Total Cost</span>
@@ -369,9 +365,10 @@ export default function Products() {
               </span>
             </div>
           </div>
-          <div className="overflow-x-auto">
+          
+          <div className="flex-1 overflow-y-auto min-h-0 relative border-b">
             <Table>
-              <TableHeader>
+              <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
                 <TableRow>
                   <TableHead>Product</TableHead>
                   <TableHead>Description</TableHead>
@@ -382,7 +379,7 @@ export default function Products() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {currentProducts.map((product) => (
+                {filteredProducts.map((product) => (
                   <TableRow key={product.id}>
                     <TableCell className="font-medium">
                       {product.name}
@@ -431,10 +428,14 @@ export default function Products() {
                   </TableRow>
                 ))}
               </TableBody>
-              </Table>          </div>
+            </Table>
+          </div>
         </CardContent>
-        <CardFooter></CardFooter>
+        <CardFooter className="shrink-0 p-2">
+          <p className="text-[10px] text-muted-foreground italic">Showing {filteredProducts.length} total items</p>
+        </CardFooter>
       </Card>
+
       <Dialog
         open={isAddProductDialogOpen || isEditProductDialogOpen}
         onOpenChange={(open) => {
@@ -445,7 +446,7 @@ export default function Products() {
           }
         }}
       >
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
               {isAddProductDialogOpen ? "Add New Product" : "Edit Product"}
@@ -456,130 +457,92 @@ export default function Products() {
                 : "Edit the details of the product."}
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="code" className="text-right">
-                Code
-              </Label>
-              <Input
-                id="code"
-                value={productCode}
-                onChange={(e) => setProductCode(e.target.value)}
-                className="col-span-3"
-              />
+          <div className="grid grid-cols-2 gap-6 py-4">
+            <div className="space-y-4">
+              <div className="grid gap-2">
+                <Label htmlFor="code">Code</Label>
+                <Input id="code" value={productCode} onChange={(e) => setProductCode(e.target.value)} />
+              </div>
+              <div className="grid gap-2 relative">
+                <Label htmlFor="name">Name <span className="text-red-500">*</span></Label>
+                <Input id="name" value={productName} onChange={(e) => setProductName(e.target.value)} placeholder="Type product name..." />
+                
+                {/* Similarity Search Suggestions */}
+                {similarProducts.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border rounded-md shadow-lg max-h-[200px] overflow-y-auto">
+                    <div className="px-3 py-2 text-[10px] font-bold text-muted-foreground bg-muted/50 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" /> SIMILAR ITEMS ALREADY ADDED:
+                    </div>
+                    {similarProducts.map(p => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors flex flex-col border-t first:border-t-0"
+                        onClick={() => {
+                          setProductName(p.name);
+                          setProductCategory(p.category);
+                          setProductUnit(p.unit || "piece");
+                          setProductDescription(p.description);
+                        }}
+                      >
+                        <span className="font-medium">{p.name}</span>
+                        <span className="text-[10px] text-muted-foreground">{p.category} | {formatCurrency(p.price)} | {p.in_stock} in stock</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="description">Description</Label>
+                <Input id="description" value={productDescription} onChange={(e) => setProductDescription(e.target.value)} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="category">Category</Label>
+                <div className="relative">
+                  <Input list="category-options" id="category" value={productCategory} onChange={(e) => setProductCategory(e.target.value)} placeholder="Select or type category" />
+                  <datalist id="category-options">
+                    {categories.map(c => <option key={c} value={c} />)}
+                  </datalist>
+                </div>
+              </div>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">
-                Name <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="name"
-                value={productName}
-                onChange={(e) => setProductName(e.target.value)}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="description" className="text-right">
-                Description
-              </Label>
-              <Input
-                id="description"
-                value={productDescription}
-                onChange={(e) => setProductDescription(e.target.value)}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="cost" className="text-right">
-                Cost <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="cost"
-                type="number"
-                value={productCost}
-                onChange={(e) => setProductCost(Number(e.target.value))}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="price" className="text-right">
-                Price <span className="text-red-500">*</span>
-              </Label>
-              <div className="col-span-3 flex items-center gap-2">
-                <Input
-                  id="price"
-                  type="number"
-                  value={productPrice}
-                  onChange={(e) => setProductPrice(Number(e.target.value))}
-                  className="flex-1"
-                />
-                <span className="text-sm text-muted-foreground whitespace-nowrap">
-                  / <span className="text-red-500">*</span>
-                </span>
-                <div className="relative w-[120px]">
-                  <Input
-                    list="unit-options"
-                    placeholder="Unit"
-                    value={productUnit}
-                    onChange={(e) => setProductUnit(e.target.value)}
-                    className="pr-8"
-                  />
+
+            <div className="space-y-4">
+              <div className="grid gap-2">
+                <Label htmlFor="cost">Cost Price (Capital) <span className="text-red-500">*</span></Label>
+                <Input id="cost" type="number" value={productCost} onChange={(e) => setProductCost(Number(e.target.value))} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="price">Selling Price <span className="text-red-500">*</span></Label>
+                <div className="flex items-center gap-2">
+                  <Input id="price" type="number" value={productPrice} onChange={(e) => setProductPrice(Number(e.target.value))} className="flex-1" />
+                  <span className="text-sm">/</span>
+                  <Input list="unit-options" className="w-[100px]" value={productUnit} onChange={(e) => setProductUnit(e.target.value)} placeholder="Unit" />
                   <datalist id="unit-options">
                     <option value="piece" />
                     <option value="weight" />
                     <option value="long" />
                   </datalist>
-                  <ChevronsUpDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 opacity-50 pointer-events-none" />
                 </div>
               </div>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="in_stock" className="text-right">
-                In Stock
-              </Label>
-              <Input
-                id="in_stock"
-                type="number"
-                value={productInStock}
-                onChange={(e) => setProductInStock(Number(e.target.value))}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="category" className="text-right">
-                Category
-              </Label>
-              <div className="col-span-3 relative">
-                <Input
-                  list="category-options"
-                  id="category"
-                  value={productCategory}
-                  onChange={(e) => setProductCategory(e.target.value)}
-                  className="pr-8"
-                  placeholder="Select or type a category"
-                />
-                <datalist id="category-options">
-                  <option value="electronics" />
-                  <option value="clothing" />
-                  <option value="books" />
-                  <option value="home" />
-                </datalist>
-                <ChevronsUpDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 opacity-50 pointer-events-none" />
+              <div className="grid gap-2">
+                <Label htmlFor="in_stock">Initial Stock</Label>
+                <Input id="in_stock" type="number" value={productInStock} onChange={(e) => setProductInStock(Number(e.target.value))} />
+              </div>
+              <div className="p-4 bg-muted/20 rounded-lg border border-dashed text-xs text-muted-foreground mt-4">
+                <strong>Tip:</strong> If you see a similar item in the list above while typing, click it to automatically fill the category and description.
               </div>
             </div>
           </div>
           <DialogFooter>
-            <Button
-              onClick={
-                isAddProductDialogOpen ? handleAddProduct : handleEditProduct
-              }
-            >
-              {isAddProductDialogOpen ? "Add Product" : "Update Product"}
+            <Button variant="outline" onClick={() => { setIsAddProductDialogOpen(false); setIsEditProductDialogOpen(false); resetSelectedProduct(); }}>Cancel</Button>
+            <Button onClick={isAddProductDialogOpen ? handleAddProduct : handleEditProduct}>
+              {isAddProductDialogOpen ? "Add Item" : "Save Changes"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
       <Dialog
         open={isDeleteConfirmationOpen}
         onOpenChange={setIsDeleteConfirmationOpen}
@@ -593,15 +556,8 @@ export default function Products() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsDeleteConfirmationOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={handleDeleteProduct}>
-              Delete
-            </Button>
+            <Button variant="outline" onClick={() => setIsDeleteConfirmationOpen(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDeleteProduct}>Delete</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

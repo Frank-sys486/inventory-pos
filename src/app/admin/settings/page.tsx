@@ -5,10 +5,25 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Download, Upload, Database, FileSpreadsheet, Loader2 } from "lucide-react";
+import { Download, Upload, Database, FileSpreadsheet, Loader2, Info, AlertTriangle, CheckCircle2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export default function SettingsPage() {
   const [loading, setLoading] = useState<string | null>(null);
+  
+  // Import state
+  const [importType, setImportType] = useState<string | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [importSummary, setImportSummary] = useState<any>(null);
+  const [showSummaryDialog, setShowSummaryDialog] = useState(false);
 
   const handleExport = async (type: string) => {
     setLoading(`export-${type}`);
@@ -21,14 +36,25 @@ export default function SettingsPage() {
     }
   };
 
-  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>, type: string) => {
+  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: string) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setPendingFile(file);
+    setImportType(type);
+    setShowImportDialog(true);
+    e.target.value = ""; // Clear input
+  };
 
-    setLoading(`import-${type}`);
+  const processImport = async (mode: "add" | "replace") => {
+    if (!pendingFile || !importType) return;
+
+    setShowImportDialog(false);
+    setLoading(`import-${importType}`);
+    
     const formData = new FormData();
-    formData.append("file", file);
-    formData.append("type", type);
+    formData.append("file", pendingFile);
+    formData.append("type", importType);
+    formData.append("mode", mode);
 
     try {
       const res = await fetch("/api/admin/data", {
@@ -37,7 +63,8 @@ export default function SettingsPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        alert(data.message);
+        setImportSummary(data.details);
+        setShowSummaryDialog(true);
       } else {
         alert("Error: " + data.error);
       }
@@ -46,7 +73,7 @@ export default function SettingsPage() {
       alert("Import failed. Check console for details.");
     } finally {
       setLoading(null);
-      e.target.value = ""; // Reset input
+      setPendingFile(null);
     }
   };
 
@@ -102,7 +129,7 @@ export default function SettingsPage() {
                   id="import-products" 
                   type="file" 
                   accept=".csv" 
-                  onChange={(e) => handleImport(e, "products")}
+                  onChange={(e) => onFileChange(e, "products")}
                   disabled={!!loading}
                 />
               </div>
@@ -114,7 +141,7 @@ export default function SettingsPage() {
                   id="import-customers" 
                   type="file" 
                   accept=".csv" 
-                  onChange={(e) => handleImport(e, "customers")}
+                  onChange={(e) => onFileChange(e, "customers")}
                   disabled={!!loading}
                 />
               </div>
@@ -147,6 +174,81 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Import Choice Dialog */}
+      <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Info className="w-5 h-5 text-blue-500" />
+              Import Options
+            </DialogTitle>
+            <DialogDescription>
+              How would you like to handle this import for <strong>{importType}</strong>?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <Button variant="outline" className="justify-start h-auto py-4 px-4 flex flex-col items-start gap-1" onClick={() => processImport("add")}>
+              <span className="font-bold">Add to Existing</span>
+              <span className="text-xs text-muted-foreground">This will keep your current items and just add the new ones.</span>
+            </Button>
+            <Button variant="outline" className="justify-start h-auto py-4 px-4 flex flex-col items-start gap-1 border-orange-200 hover:bg-orange-50 hover:border-orange-300" onClick={() => processImport("replace")}>
+              <span className="font-bold text-orange-700 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4" /> Replace All
+              </span>
+              <span className="text-xs text-muted-foreground">This will archive all your current items and only show the ones from this file.</span>
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowImportDialog(false)}>Cancel</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Summary Dialog */}
+      <Dialog open={showSummaryDialog} onOpenChange={setShowSummaryDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-green-500" />
+              Import Summary
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-muted p-4 rounded-lg">
+                <p className="text-xs text-muted-foreground uppercase font-bold">Total Imported</p>
+                <p className="text-3xl font-bold">{importSummary?.total}</p>
+              </div>
+              <div className="bg-muted p-4 rounded-lg">
+                <p className="text-xs text-muted-foreground uppercase font-bold">Similar Items</p>
+                <p className="text-3xl font-bold text-blue-600">{importSummary?.similar}</p>
+              </div>
+            </div>
+            
+            <div className="border rounded-lg p-4 space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium">Similarity Rate</span>
+                <span className="text-sm font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded">{importSummary?.similarityPercentage}%</span>
+              </div>
+              <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                <div 
+                  className="bg-blue-500 h-full transition-all duration-500" 
+                  style={{ width: `${importSummary?.similarityPercentage}%` }}
+                />
+              </div>
+              <p className="text-[10px] text-muted-foreground leading-tight">
+                {importSummary?.similar > 0 
+                  ? "Note: High similarity means many items in the file have names similar to items already in your database."
+                  : "Note: No similar names were detected in your current database."}
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setShowSummaryDialog(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
