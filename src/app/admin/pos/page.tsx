@@ -20,6 +20,15 @@ import { CustomerDialog } from "@/components/pos/customer-dialog";
 import { ProductDialog } from "@/components/pos/product-dialog";
 import { POSProductEditDialog } from "@/components/pos/product-edit-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 type POSItem = {
   id: string;
@@ -63,14 +72,17 @@ export default function POSPage() {
   const [showCustomerDialog, setShowCustomerDialog] = useState(false);
   const [showProductDialog, setShowProductDialog] = useState(false);
   const [showTempEditDialog, setShowTempEditDialog] = useState(false);
+  const [showTransactionDialog, setShowTransactionDialog] = useState(false);
   
   const [editingProduct, setEditingProduct] = useState<POSItem | null>(null);
   const [productForTempEdit, setProductForTempEdit] = useState<POSProduct | null>(null);
+  const [amountReceived, setAmountReceived] = useState<string>("");
 
   // Refs for keyboard focus
   const customerRef = useRef<HTMLButtonElement>(null);
   const paymentRef = useRef<HTMLButtonElement>(null);
   const productSearchRef = useRef<HTMLInputElement>(null);
+  const amountReceivedRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchProducts();
@@ -86,7 +98,11 @@ export default function POSPage() {
           case 'F2': customerRef.current?.focus(); break;
           case 'F3': paymentRef.current?.focus(); break;
           case 'F4': productSearchRef.current?.focus(); break;
-          case 'F9': handlePrintReceipt(); break;
+          case 'F9': 
+            if (selectedProducts.length > 0 && selectedCustomer && paymentMethod) {
+              setShowTransactionDialog(true);
+            }
+            break;
         }
         return;
       }
@@ -166,7 +182,7 @@ export default function POSPage() {
     setSelectedProducts(selectedProducts.filter((p) => p.id !== productId));
   };
 
-  const generateReceiptContent = (title: string, deliveryActive: boolean, orderId?: string) => {
+  const generateReceiptContent = (title: string, deliveryActive: boolean, received: number, change: number, orderId?: string) => {
     let html = "";
     const shopName = "MC HARDWARE SYSTEM";
     const shopAddress = "BLK4 LOT29 Las Palmas Subdivision Cay Pombo Sta. Maria, Bulacan";
@@ -220,10 +236,14 @@ export default function POSPage() {
     html += sep();
     const totalVal = selectedProducts.reduce((sum, p) => sum + p.price * p.quantity, 0);
     html += line("TOTAL", totalVal.toFixed(2), { bold: true, size: 'lg' });
+    
+    // Payment Details
+    const methodLabel = paymentMethod?.name.toUpperCase() || "CASH";
+    html += line(methodLabel + ":", received.toFixed(2));
+    html += line("CHANGE:", change.toFixed(2));
     html += sep();
 
     // Footer
-    if (paymentMethod) html += line("TENDER:", paymentMethod.name.toUpperCase(), { size: 'sm' });
     if (selectedCustomer) {
       html += line("CUST:", selectedCustomer.name.toUpperCase(), { size: 'sm' });
       if (deliveryActive && selectedCustomer.address) {
@@ -249,12 +269,18 @@ export default function POSPage() {
     setTimeout(() => window.print(), 300);
   };
 
-  const handlePrintReceipt = async () => {
-    if (!selectedCustomer || !paymentMethod || selectedProducts.length === 0) {
-      alert("Please select customer and payment method");
+  const handleFinalizeTransaction = async () => {
+    if (!selectedCustomer || !paymentMethod || selectedProducts.length === 0) return;
+    
+    const totalVal = selectedProducts.reduce((sum, p) => sum + p.price * p.quantity, 0);
+    const receivedVal = parseFloat(amountReceived) || 0;
+    const changeVal = receivedVal - totalVal;
+
+    if (receivedVal < totalVal) {
+      alert("Amount received is less than total amount");
       return;
     }
-    const totalVal = selectedProducts.reduce((sum, p) => sum + p.price * p.quantity, 0);
+
     try {
       const response = await fetch("/api/orders", {
         method: "POST",
@@ -271,16 +297,20 @@ export default function POSPage() {
             category: p.category || "Uncategorized"
           })),
           total_amount: totalVal,
+          amount_received: receivedVal,
+          change: changeVal,
           status: 'completed'
         }),
       });
       if (!response.ok) throw new Error("Failed to create order");
       
       const createdOrder = await response.json();
-      generateReceiptContent("CASH RECEIPT", isForDelivery, createdOrder._id || createdOrder.id);
+      generateReceiptContent("CASH RECEIPT", isForDelivery, receivedVal, changeVal, createdOrder._id || createdOrder.id);
       
       setSelectedProducts([]);
       setIsForDelivery(false);
+      setShowTransactionDialog(false);
+      setAmountReceived("");
     } catch (error) {
       console.error("Error processing sale:", error);
       alert("Something went wrong");
@@ -313,6 +343,8 @@ export default function POSPage() {
       {k}
     </span>
   );
+
+  const totalVal = selectedProducts.reduce((sum, p) => sum + p.price * p.quantity, 0);
 
   return (
     <div className="container mx-auto p-4">
@@ -418,15 +450,87 @@ export default function POSPage() {
             </TableBody>
           </Table>
           <div className="mt-4 text-right">
-            <strong>Total: {formatCurrency(selectedProducts.reduce((sum, p) => sum + p.price * p.quantity, 0))}</strong>
+            <strong>Total: {formatCurrency(totalVal)}</strong>
           </div>
           <div className="mt-4 flex gap-2">
-            <Button className="w-full sm:w-auto" onClick={handlePrintReceipt} disabled={selectedProducts.length === 0 || !selectedCustomer || !paymentMethod}>
-              Print Receipt <ShortcutBadge k="F9" />
+            <Button 
+              className="w-full sm:w-auto" 
+              onClick={() => setShowTransactionDialog(true)} 
+              disabled={selectedProducts.length === 0 || !selectedCustomer || !paymentMethod}
+            >
+              Create Transaction <ShortcutBadge k="F9" />
             </Button>
           </div>
         </CardContent>
       </Card>
+
+      <Dialog 
+        open={showTransactionDialog} 
+        onOpenChange={(open) => {
+          setShowTransactionDialog(open);
+          if (open) {
+            if (paymentMethod?.id !== 'cash') {
+              setAmountReceived(totalVal.toString());
+            } else {
+              setAmountReceived("");
+            }
+            setTimeout(() => amountReceivedRef.current?.focus(), 150);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Complete Transaction</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-6 py-4">
+            <div className="flex flex-col gap-2">
+              <Label className="text-muted-foreground text-xs uppercase">Total Amount</Label>
+              <div className="text-3xl font-bold">{formatCurrency(totalVal)}</div>
+            </div>
+            
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="received" className="font-bold">
+                {paymentMethod?.name || "Cash"} Received
+              </Label>
+              <Input
+                id="received"
+                ref={amountReceivedRef}
+                type="number"
+                value={amountReceived}
+                onChange={(e) => setAmountReceived(e.target.value)}
+                className="text-2xl h-12"
+                placeholder="0.00"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleFinalizeTransaction();
+                  }
+                }}
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label className="text-muted-foreground text-xs uppercase">Change</Label>
+              <div className={cn(
+                "text-3xl font-bold",
+                (parseFloat(amountReceived) || 0) - totalVal < 0 
+                  ? "text-red-500" 
+                  : "text-green-600"
+              )}>
+                {formatCurrency(Math.max(0, (parseFloat(amountReceived) || 0) - totalVal))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowTransactionDialog(false)}>Cancel</Button>
+            <Button 
+              onClick={handleFinalizeTransaction}
+              disabled={(parseFloat(amountReceived) || 0) < totalVal}
+            >
+              Print Receipt
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <CustomerDialog open={showCustomerDialog} onOpenChange={setShowCustomerDialog} onSave={handleSaveCustomer} />
       <ProductDialog open={showProductDialog} onOpenChange={setShowProductDialog} product={editingProduct} onSave={handleSaveProductMaster} />

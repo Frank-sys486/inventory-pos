@@ -12,6 +12,9 @@ type Order = {
   status: 'completed' | 'pending' | 'cancelled';
   created_at: string;
   total_amount: number;
+  amount_received?: number;
+  change?: number;
+  paymentMethod?: string;
   customer: {
     name: string;
     email: string;
@@ -59,7 +62,7 @@ export default function OrderDetailsPage({ params }: { params: { orderId: string
   if (error) {
     return (
       <div className="container mx-auto p-4">
-        <h1 className="text-2xl font-bold mb-4">Order Details</h1>
+        <h1 className="text-2xl font-bold mb-4">Sold Item Details</h1>
         <Card>
           <CardContent>
             <p className="text-red-500">{error}</p>
@@ -72,7 +75,7 @@ export default function OrderDetailsPage({ params }: { params: { orderId: string
   if (!order) {
     return (
       <div className="container mx-auto p-4">
-        <h1 className="text-2xl font-bold mb-4">Order Details</h1>
+        <h1 className="text-2xl font-bold mb-4">Sold Item Details</h1>
         <p>Order not found.</p>
       </div>
     );
@@ -83,7 +86,7 @@ export default function OrderDetailsPage({ params }: { params: { orderId: string
       <Card>
         <CardHeader>
           <CardTitle className="flex justify-between items-center">
-            <span>Order #{order._id ? order._id.substring(0, 8) : 'N/A'}...</span>
+            <span>Transaction #{order._id ? order._id.substring(0, 8) : 'N/A'}...</span>
             <Badge variant={order.status === 'completed' ? 'default' : 'secondary'}>
               {order.status}
             </Badge>
@@ -102,7 +105,7 @@ export default function OrderDetailsPage({ params }: { params: { orderId: string
             </div>
           </div>
           <div>
-            <h3 className="font-semibold mb-2">Order Items</h3>
+            <h3 className="font-semibold mb-2">Items Sold</h3>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -124,10 +127,24 @@ export default function OrderDetailsPage({ params }: { params: { orderId: string
               </TableBody>
             </Table>
           </div>
-          <div className="flex justify-end">
-            <div className="text-right">
-              <p className="font-semibold text-lg">Total Amount</p>
-              <p className="font-bold text-2xl">{formatCurrency(order.total_amount)}</p>
+          <div className="flex justify-end border-t pt-4">
+            <div className="text-right space-y-1 min-w-[200px]">
+              <div className="flex justify-between gap-8 text-sm">
+                <span className="text-muted-foreground">Payment Method:</span>
+                <span className="font-medium uppercase">{order.paymentMethod || "Cash"}</span>
+              </div>
+              <div className="flex justify-between gap-8 text-sm">
+                <span className="text-muted-foreground">Amount Received:</span>
+                <span className="font-medium">{formatCurrency(order.amount_received || order.total_amount)}</span>
+              </div>
+              <div className="flex justify-between gap-8 text-sm pb-2 border-b">
+                <span className="text-muted-foreground">Change:</span>
+                <span className="font-medium text-green-600">{formatCurrency(order.change || 0)}</span>
+              </div>
+              <div className="flex justify-between gap-8 pt-2">
+                <span className="font-semibold text-lg">Total Amount:</span>
+                <span className="font-bold text-2xl text-primary">{formatCurrency(order.total_amount)}</span>
+              </div>
             </div>
           </div>
         </CardContent>

@@ -1,5 +1,5 @@
 import { auth } from '@/auth'
-import { dbOrders } from '@/lib/pouchdb'
+import { dbOrders, dbCustomers } from '@/lib/pouchdb'
 import { NextResponse } from 'next/server'
 
 export async function GET(
@@ -15,6 +15,16 @@ export async function GET(
     // Verify user ownership
     if (doc.user_uid !== (session.user as any).id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Attach customer info
+    if (doc.customer_id) {
+      try {
+        const customer = await dbCustomers.get(doc.customer_id);
+        doc.customer = customer;
+      } catch (err) {
+        console.error("Customer not found for order");
+      }
     }
 
     return NextResponse.json(doc);

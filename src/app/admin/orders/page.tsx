@@ -386,7 +386,7 @@ export default function OrdersPage() {
                 <TableHead>Customer</TableHead>
                 <TableHead>Total</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Date</TableHead>
+                <TableHead>Date & Time</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -397,7 +397,12 @@ export default function OrdersPage() {
                   <TableCell>{order.customer ? order.customer.name : 'N/A'}</TableCell>
                   <TableCell>{formatCurrency(order.total_amount)}</TableCell>
                   <TableCell>{order.status}</TableCell>
-                  <TableCell>{new Date(order.created_at).toLocaleDateString()}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-col">
+                      <span>{new Date(order.created_at).toLocaleDateString()}</span>
+                      <span className="text-[10px] text-muted-foreground">{new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <Button
