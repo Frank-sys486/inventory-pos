@@ -28,12 +28,12 @@ export const ProductSearch = React.forwardRef<
   const [open, setOpen] = useState(false);
   const lastSelectTime = React.useRef(0);
 
-  const handleSelect = (id: number | string) => {
+  const handleSelect = React.useCallback((id: number | string) => {
     lastSelectTime.current = Date.now();
     setSearch("");
     setOpen(false);
     onSelect(id);
-  };
+  }, [onSelect]);
 
   // Auto-select if there's an exact barcode match
   React.useEffect(() => {
@@ -45,7 +45,7 @@ export const ProductSearch = React.forwardRef<
     if (exactMatch && Date.now() - lastSelectTime.current > 500) {
       handleSelect(exactMatch.id);
     }
-  }, [search, items]);
+  }, [search, items, handleSelect]);
 
   return (
     <Command shouldFilter={false}>
