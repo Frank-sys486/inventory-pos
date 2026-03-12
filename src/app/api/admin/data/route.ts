@@ -265,3 +265,103 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+
+/**
+ * PURGE DATA (With Password Verification)
+ */
+export async function DELETE(req: Request) {
+  const session = await auth();
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user_uid = (session.user as any).id;
+  const user_email = session.user.email;
+
+  try {
+    const body = await req.json();
+    const { password, type } = body;
+
+    if (!password) return NextResponse.json({ error: "Password is required" }, { status: 400 });
+
+    // 1. Verify Password Robustly
+    let isPasswordCorrect = false;
+
+    // A. Check if it's the Master Admin
+    const adminEmail = process.env.ADMIN_EMAIL || "admin@pos.com";
+    const adminPassword = process.env.ADMIN_PASSWORD || "admin123";
+
+    if (user_uid === "admin-master" || user_email === adminEmail) {
+        if (password === adminPassword) {
+            isPasswordCorrect = true;
+        } else {
+            return NextResponse.json({ error: "Incorrect admin password" }, { status: 403 });
+        }
+    } else {
+        // B. Check PouchDB for regular users
+        const userResult = await dbUsers.find({
+            selector: {
+                $or: [
+                    { _id: user_uid },
+                    { email: user_email }
+                ]
+            }
+        });
+
+        const user = userResult.docs[0] as any;
+
+        if (!user) {
+            return NextResponse.json({ error: "User account not found in database" }, { status: 404 });
+        }
+
+        if (user.password === password) {
+            isPasswordCorrect = true;
+        } else {
+            return NextResponse.json({ error: "Incorrect password. Please try again." }, { status: 403 });
+        }
+    }
+
+    if (!isPasswordCorrect) {
+        return NextResponse.json({ error: "Verification failed" }, { status: 403 });
+    }
+
+    // 2. Identify Target Databases
+    const targets: { name: string; db: any }[] = [];
+    if (type === "all" || type === "products") targets.push({ name: "products", db: dbProducts });
+    if (type === "all" || type === "customers") targets.push({ name: "customers", db: dbCustomers });
+    if (type === "all" || type === "orders") targets.push({ name: "orders", db: dbOrders });
+    if (type === "all" || type === "transactions") targets.push({ name: "transactions", db: dbTransactions });
+
+    if (targets.length === 0) return NextResponse.json({ error: "Invalid purge type" }, { status: 400 });
+
+    const isDevMode = process.env.DEVELOPER_MODE === "true";
+    const results: any = {};
+
+    for (const target of targets) {
+      const docs = (await getAllDocs(target.db)).filter((d: any) => d.user_uid === user_uid);
+      
+      if (docs.length === 0) {
+        results[target.name] = 0;
+        continue;
+      }
+
+      if (isDevMode) {
+        // PERMANENT DELETE (Developer Mode)
+        const deleteDocs = docs.map(d => ({ ...d, _deleted: true }));
+        await target.db.bulkDocs(deleteDocs);
+        results[target.name] = docs.length;
+      } else {
+        // SOFT DELETE (Archive)
+        const archiveDocs = docs.map(d => ({ ...d, isArchived: true }));
+        await target.db.bulkDocs(archiveDocs);
+        results[target.name] = docs.length;
+      }
+    }
+
+    return NextResponse.json({ 
+      message: isDevMode ? "Data permanently deleted" : "Data moved to archive",
+      results
+    });
+
+  } catch (error: any) {
+    console.error("Purge Error:", error);
+    return NextResponse.json({ error: "Server error: " + error.message }, { status: 500 });
+  }
+}

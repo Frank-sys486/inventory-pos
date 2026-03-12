@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Download, Upload, Database, FileSpreadsheet, Loader2, Info, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Download, Upload, Database, FileSpreadsheet, Loader2, Info, AlertTriangle, CheckCircle2, Trash2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { PurgeDialog } from "@/components/pos/purge-dialog";
 
 export default function SettingsPage() {
   const [loading, setLoading] = useState<string | null>(null);
@@ -24,6 +25,10 @@ export default function SettingsPage() {
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [importSummary, setImportSummary] = useState<any>(null);
   const [showSummaryDialog, setShowSummaryDialog] = useState(false);
+
+  // Purge state
+  const [showPurgeDialog, setShowPurgeDialog] = useState(false);
+  const [purgeMessage, setPurgeMessage] = useState("");
 
   const handleExport = async (type: string) => {
     setLoading(`export-${type}`);
@@ -78,7 +83,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="flex flex-col gap-6 p-6 pb-20">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
         <p className="text-muted-foreground text-lg">Manage your database, imports, and system configurations.</p>
@@ -190,7 +195,7 @@ export default function SettingsPage() {
         </Card>
 
         {/* System Info Card */}
-        <Card className="md:col-span-2">
+        <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
               <Database className="w-5 h-5 text-purple-500" />
@@ -211,6 +216,30 @@ export default function SettingsPage() {
               <span className="text-muted-foreground">App Version:</span>
               <span>1.0.0 (Production)</span>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Danger Zone Card */}
+        <Card className="border-red-200 bg-red-50/30">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-red-500" />
+              <CardTitle className="text-red-700">Danger Zone</CardTitle>
+            </div>
+            <CardDescription>Actions here can result in permanent data loss. Use with caution.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button 
+                variant="destructive" 
+                className="w-full justify-start gap-2 h-12"
+                onClick={() => setShowPurgeDialog(true)}
+            >
+              <Trash2 className="w-5 h-5" />
+              Purge Database / Factory Reset
+            </Button>
+            <p className="text-xs text-red-500 font-medium italic">
+                * Note: Based on system configuration, data may be archived instead of permanently deleted.
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -295,6 +324,28 @@ export default function SettingsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Purge Result Dialog */}
+      <Dialog open={!!purgeMessage} onOpenChange={(open) => !open && setPurgeMessage("")}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-green-600">
+                    <CheckCircle2 className="w-5 h-5" />
+                    Action Complete
+                </DialogTitle>
+                <DialogDescription>{purgeMessage}</DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+                <Button onClick={() => setPurgeMessage("")}>Done</Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <PurgeDialog 
+        open={showPurgeDialog} 
+        onOpenChange={setShowPurgeDialog} 
+        onSuccess={(msg) => setPurgeMessage(msg)}
+      />
     </div>
   );
 }
