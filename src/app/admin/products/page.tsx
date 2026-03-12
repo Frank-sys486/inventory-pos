@@ -338,30 +338,39 @@ export default function Products() {
         </CardHeader>
         <CardContent className="p-0 flex flex-col flex-1 overflow-hidden">
           <div className="px-6 py-4 bg-muted/30 border-b flex flex-wrap items-center justify-between gap-4 text-sm shrink-0">
-            <div className="flex gap-6">
+            <div className="flex gap-8">
               <div className="flex flex-col">
-                <span className="text-muted-foreground font-medium uppercase text-[10px]">Total Cost</span>
+                <span className="text-muted-foreground font-medium uppercase text-[10px] flex items-center gap-1">
+                  Inv. Value (Cost)
+                  <span className="cursor-help" title="Total capital tied up in stock (Unit Cost * Stock)">ⓘ</span>
+                </span>
                 <span className="text-blue-600 font-bold text-lg leading-none">
-                  {formatCurrency(filteredProducts.reduce((sum, p) => sum + (p.cost || 0), 0))}
+                  {formatCurrency(filteredProducts.reduce((sum, p) => sum + (Number(p.cost || 0) * Number(p.in_stock || 0)), 0))}
                 </span>
               </div>
               <div className="flex flex-col">
-                <span className="text-muted-foreground font-medium uppercase text-[10px]">Total Price</span>
+                <span className="text-muted-foreground font-medium uppercase text-[10px] flex items-center gap-1">
+                  Inv. Value (Retail)
+                  <span className="cursor-help" title="Total potential sales if all stock is sold (Unit Price * Stock)">ⓘ</span>
+                </span>
                 <span className="text-green-600 font-bold text-lg leading-none">
-                  {formatCurrency(filteredProducts.reduce((sum, p) => sum + (p.price || 0), 0))}
+                  {formatCurrency(filteredProducts.reduce((sum, p) => sum + (Number(p.price || 0) * Number(p.in_stock || 0)), 0))}
                 </span>
               </div>
               <div className="flex flex-col">
-                <span className="text-muted-foreground font-medium uppercase text-[10px]">Total Stock</span>
-                <span className="text-foreground font-bold text-lg leading-none">
-                  {filteredProducts.reduce((sum, p) => sum + (p.in_stock || 0), 0)} <span className="text-[10px] font-normal text-muted-foreground">units</span>
+                <span className="text-muted-foreground font-medium uppercase text-[10px] flex items-center gap-1">
+                  Potential Profit
+                  <span className="cursor-help" title="Projected profit from current stock ((Price - Cost) * Stock)">ⓘ</span>
+                </span>
+                <span className="text-orange-600 font-bold text-lg leading-none">
+                  {formatCurrency(filteredProducts.reduce((sum, p) => sum + ((Number(p.price || 0) - Number(p.cost || 0)) * Number(p.in_stock || 0)), 0))}
                 </span>
               </div>
             </div>
             <div className="flex flex-col items-end">
-              <span className="text-muted-foreground font-medium uppercase text-[10px]">Inventory Value</span>
-              <span className="text-orange-600 font-bold text-lg leading-none">
-                {formatCurrency(filteredProducts.reduce((sum, p) => sum + ((p.cost || 0) * (p.in_stock || 0)), 0))}
+              <span className="text-muted-foreground font-medium uppercase text-[10px]">Total Stock</span>
+              <span className="text-foreground font-bold text-lg leading-none">
+                {filteredProducts.reduce((sum, p) => sum + Number(p.in_stock || 0), 0)} <span className="text-[10px] font-normal text-muted-foreground">units</span>
               </span>
             </div>
           </div>

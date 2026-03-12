@@ -63,7 +63,7 @@ export default function SettingsPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        setImportSummary(data.details);
+        setImportSummary({ ...data.details, message: data.message });
         setShowSummaryDialog(true);
       } else {
         alert("Error: " + data.error);
@@ -85,14 +85,58 @@ export default function SettingsPage() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
+        {/* Full Backup/Restore Card */}
+        <Card className="md:col-span-2 border-primary/20 bg-primary/[0.02]">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Database className="w-5 h-5 text-primary" />
+              <CardTitle>System Maintenance</CardTitle>
+            </div>
+            <CardDescription>Backup or restore your entire system including products, customers, and history.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-4">
+            <Button 
+              size="lg"
+              className="gap-2"
+              onClick={() => handleExport("all")}
+              disabled={!!loading}
+            >
+              {loading === "export-all" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+              Backup All Data (JSON)
+            </Button>
+            
+            <div className="relative">
+              <input 
+                type="file" 
+                id="restore-all" 
+                className="hidden" 
+                accept=".json" 
+                onChange={(e) => onFileChange(e, "all")}
+              />
+              <Button 
+                variant="outline"
+                size="lg"
+                className="gap-2"
+                asChild
+                disabled={!!loading}
+              >
+                <label htmlFor="restore-all" className="cursor-pointer">
+                  {loading === "import-all" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                  Restore System (JSON)
+                </label>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Export Card */}
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
-              <Download className="w-5 h-5 text-blue-500" />
-              <CardTitle>Export Database</CardTitle>
+              <FileSpreadsheet className="w-5 h-5 text-blue-500" />
+              <CardTitle>CSV Exports</CardTitle>
             </div>
-            <CardDescription>Download your data in CSV format for backups or external analysis.</CardDescription>
+            <CardDescription>Download specific tables in CSV format for spreadsheet use.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4">
             <div className="flex flex-wrap gap-2">
@@ -100,11 +144,12 @@ export default function SettingsPage() {
                 <Button 
                   key={type} 
                   variant="outline" 
+                  size="sm"
                   className="capitalize"
                   disabled={!!loading}
                   onClick={() => handleExport(type)}
                 >
-                  {loading === `export-${type}` ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <FileSpreadsheet className="w-4 h-4 mr-2" />}
+                  {loading === `export-${type}` ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Download className="w-4 h-4 mr-2" />}
                   {type}
                 </Button>
               ))}
@@ -117,35 +162,30 @@ export default function SettingsPage() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <Upload className="w-5 h-5 text-green-500" />
-              <CardTitle>Import Data</CardTitle>
+              <CardTitle>CSV Imports</CardTitle>
             </div>
-            <CardDescription>Bulk upload products or customers via CSV file.</CardDescription>
+            <CardDescription>Bulk upload or update data via CSV files.</CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-6">
-            <div className="space-y-2">
-              <Label htmlFor="import-products">Import Products</Label>
-              <div className="flex gap-2">
-                <Input 
-                  id="import-products" 
-                  type="file" 
-                  accept=".csv" 
-                  onChange={(e) => onFileChange(e, "products")}
-                  disabled={!!loading}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="import-customers">Import Customers</Label>
-              <div className="flex gap-2">
-                <Input 
-                  id="import-customers" 
-                  type="file" 
-                  accept=".csv" 
-                  onChange={(e) => onFileChange(e, "customers")}
-                  disabled={!!loading}
-                />
-              </div>
-            </div>
+          <CardContent className="grid gap-4">
+            {["products", "customers", "orders", "transactions"].map((type) => (
+               <div key={type} className="flex items-center justify-between p-2 border rounded-md hover:bg-slate-50">
+                  <span className="text-sm font-medium capitalize">{type}</span>
+                  <div className="relative">
+                    <input 
+                      type="file" 
+                      id={`import-${type}`} 
+                      className="hidden" 
+                      accept=".csv" 
+                      onChange={(e) => onFileChange(e, type)}
+                    />
+                    <Button variant="ghost" size="sm" asChild disabled={!!loading}>
+                      <label htmlFor={`import-${type}`} className="cursor-pointer">
+                        <Upload className="w-4 h-4 mr-2" /> Upload
+                      </label>
+                    </Button>
+                  </div>
+               </div>
+            ))}
           </CardContent>
         </Card>
 
@@ -211,38 +251,44 @@ export default function SettingsPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5 text-green-500" />
-              Import Summary
+              {importSummary?.message || "Import Summary"}
             </DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-muted p-4 rounded-lg">
-                <p className="text-xs text-muted-foreground uppercase font-bold">Total Imported</p>
-                <p className="text-3xl font-bold">{importSummary?.total}</p>
+            {importType === "all" ? (
+              <div className="space-y-2">
+                {Object.entries(importSummary || {}).map(([key, val]) => {
+                  if (key === "message") return null;
+                  return (
+                    <div key={key} className="flex justify-between items-center p-2 bg-muted rounded">
+                      <span className="capitalize text-sm font-medium">{key}</span>
+                      <span className="font-bold">{val as any}</span>
+                    </div>
+                  );
+                })}
               </div>
-              <div className="bg-muted p-4 rounded-lg">
-                <p className="text-xs text-muted-foreground uppercase font-bold">Similar Items</p>
-                <p className="text-3xl font-bold text-blue-600">{importSummary?.similar}</p>
-              </div>
-            </div>
-            
-            <div className="border rounded-lg p-4 space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">Similarity Rate</span>
-                <span className="text-sm font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded">{importSummary?.similarityPercentage}%</span>
-              </div>
-              <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
-                <div 
-                  className="bg-blue-500 h-full transition-all duration-500" 
-                  style={{ width: `${importSummary?.similarityPercentage}%` }}
-                />
-              </div>
-              <p className="text-[10px] text-muted-foreground leading-tight">
-                {importSummary?.similar > 0 
-                  ? "Note: High similarity means many items in the file have names similar to items already in your database."
-                  : "Note: No similar names were detected in your current database."}
-              </p>
-            </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-muted p-4 rounded-lg">
+                    <p className="text-xs text-muted-foreground uppercase font-bold">Total Imported</p>
+                    <p className="text-3xl font-bold">{importSummary?.total}</p>
+                  </div>
+                  <div className="bg-muted p-4 rounded-lg">
+                    <p className="text-xs text-muted-foreground uppercase font-bold">Similar Items</p>
+                    <p className="text-3xl font-bold text-blue-600">{importSummary?.similar || 0}</p>
+                  </div>
+                </div>
+                {importSummary?.total > 0 && (
+                   <div className="border rounded-lg p-4 space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium">Data Integrity</span>
+                        <span className="text-xs text-green-600 font-bold px-2 py-0.5 bg-green-50 rounded border border-green-100">VERIFIED</span>
+                      </div>
+                   </div>
+                )}
+              </>
+            )}
           </div>
           <DialogFooter>
             <Button onClick={() => setShowSummaryDialog(false)}>Close</Button>

@@ -88,17 +88,25 @@ export default function POSPage() {
     fetchProducts();
     fetchCustomers();
     fetchPaymentMethods();
-    
+  }, []);
+
+  useEffect(() => {
     // Global Keyboard Shortcuts
     const handleKeyDown = (e: KeyboardEvent) => {
       // 1. Handle Function Keys
-      if (['F2', 'F3', 'F4', 'F9'].includes(e.key)) {
+      if (["F2", "F3", "F4", "F9"].includes(e.key)) {
         e.preventDefault();
         switch (e.key) {
-          case 'F2': customerRef.current?.focus(); break;
-          case 'F3': paymentRef.current?.focus(); break;
-          case 'F4': productSearchRef.current?.focus(); break;
-          case 'F9': 
+          case "F2":
+            customerRef.current?.focus();
+            break;
+          case "F3":
+            paymentRef.current?.focus();
+            break;
+          case "F4":
+            productSearchRef.current?.focus();
+            break;
+          case "F9":
             if (selectedProducts.length > 0 && selectedCustomer && paymentMethod) {
               setShowTransactionDialog(true);
             }
@@ -108,7 +116,9 @@ export default function POSPage() {
       }
 
       // 2. Alphanumeric Capture (Redirect any typing to product search)
-      const isTyping = document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA';
+      const isTyping =
+        document.activeElement?.tagName === "INPUT" ||
+        document.activeElement?.tagName === "TEXTAREA";
       const isModifier = e.ctrlKey || e.altKey || e.metaKey;
       const isSingleChar = e.key.length === 1;
 
@@ -117,9 +127,9 @@ export default function POSPage() {
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedCustomer, paymentMethod, selectedProducts, isForDelivery]);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedCustomer, paymentMethod, selectedProducts]);
 
   const fetchProducts = async () => {
     try {

@@ -38,10 +38,11 @@ export const ProductSearch = React.forwardRef<
   // Auto-select if there's an exact barcode match
   React.useEffect(() => {
     if (!search) return;
-    const exactMatch = items.find(
-      (item) => item.code && item.code.toLowerCase() === search.toLowerCase()
-    );
-    if (exactMatch && (Date.now() - lastSelectTime.current > 500)) {
+    const exactMatch = items.find((item) => {
+      const itemCode = String(item.code || "");
+      return itemCode.toLowerCase() === search.toLowerCase();
+    });
+    if (exactMatch && Date.now() - lastSelectTime.current > 500) {
       handleSelect(exactMatch.id);
     }
   }, [search, items]);
@@ -69,11 +70,14 @@ export const ProductSearch = React.forwardRef<
       <CommandList>
         {open && search.length > 1 &&
           items
-            .filter(
-              (item) =>
-                item.name.toLowerCase().includes(search.toLowerCase()) ||
-                item.code?.toLowerCase().includes(search.toLowerCase())
-            )
+            .filter((item) => {
+              const itemName = String(item.name || "").toLowerCase();
+              const itemCode = String(item.code || "").toLowerCase();
+              const searchLower = search.toLowerCase();
+              return (
+                itemName.includes(searchLower) || itemCode.includes(searchLower)
+              );
+            })
             .map((item) => {
               if (item.id === undefined || item.id === null) return null;
               return (

@@ -115,6 +115,13 @@ export default function Page() {
           fetch(`/api/admin/profit/margin${query}`)
         ]);
 
+        const responses = [profitRes, expensesRes, cashFlowRes, revenueByCategoryRes, expensesByCategoryRes, profitMarginRes];
+        const failed = responses.find(r => !r.ok);
+        if (failed) {
+            const errData = await failed.json().catch(() => ({}));
+            throw new Error(errData.error || `Server responded with ${failed.status}`);
+        }
+
         const profitData = await profitRes.json();
         const expenses = await expensesRes.json();
         const cashFlowData = await cashFlowRes.json();
@@ -132,6 +139,7 @@ export default function Page() {
         setProfitMargin(profitMarginData.profitMargin || []);
       } catch (error) {
         console.error('Error fetching data:', error);
+        window.location.href = `/error?message=${encodeURIComponent((error as Error).message)}`;
       } finally {
         setLoading(false);
       }
