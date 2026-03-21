@@ -1,6 +1,6 @@
 # Transition Plan: Supabase to MongoDB (NoSQL)
 
-This document outlines the strategy and necessary changes to migrate the **FinOpenPOS** project from Supabase to a MongoDB-based architecture.
+This document outlines the strategy and necessary changes to migrate the **iPos System** project from Supabase to a MongoDB-based architecture.
 
 ## 1. Overview
 The goal is to replace Supabase (PostgreSQL + Auth) with MongoDB (NoSQL) using Mongoose for data modeling and NextAuth.js (Auth.js) for authentication.

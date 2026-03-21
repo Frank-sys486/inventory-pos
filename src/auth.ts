@@ -5,7 +5,7 @@ import { dbUsers } from "./lib/pouchdb"
 
 // CRITICAL: Force set AUTH_SECRET if missing to prevent MissingSecret error
 if (!process.env.AUTH_SECRET) {
-  process.env.AUTH_SECRET = "finopenpos-secure-fallback-secret-12345-abcde";
+  process.env.AUTH_SECRET = "ipos-system-secure-fallback-secret-12345-abcde";
 }
 
 // Enable automatic host trusting if NEXTAUTH_URL is missing
@@ -14,7 +14,7 @@ process.env.AUTH_TRUST_HOST = "true";
 export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
   trustHost: true,
-  secret: process.env.AUTH_SECRET || "finopenpos-secure-fallback-secret-12345-abcde",
+  secret: process.env.AUTH_SECRET || "ipos-system-secure-fallback-secret-12345-abcde",
   session: { strategy: "jwt" }, // PouchDB doesn't use an adapter session
   providers: [
     Credentials({
@@ -27,7 +27,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         console.log(`Auth attempt for: ${credentials.email}`);
 
         // 1. Check Master Admin from .env (with hardcoded fallback for setup)
-        const adminEmail = process.env.ADMIN_EMAIL || "admin@pos.com";
+        const adminEmail = process.env.ADMIN_EMAIL || "admin@ipos.com";
         const adminPassword = process.env.ADMIN_PASSWORD || "admin123";
 
         console.log(`Master Admin Config: email=${adminEmail ? 'FOUND' : 'MISSING'}, password=${adminPassword ? 'FOUND' : 'MISSING'}`);

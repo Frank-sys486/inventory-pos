@@ -6,8 +6,8 @@ import { execSync } from "child_process";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Hardware System",
-  description: "Developed by Frank Borromeo",
+  title: "iPos System",
+  description: "Modern POS and Inventory Management System",
 };
 
 function getHWID() {

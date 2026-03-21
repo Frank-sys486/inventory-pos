@@ -1,4 +1,4 @@
 @echo off
-TITLE FinOpenPOS Launcher
+TITLE iPos System Launcher
 node launcher.js
 pause

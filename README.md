@@ -1,52 +1,54 @@
-# MC Hardware System (formerly FinOpenPOS)
+# iPos System (v2.0)
 
-MC Hardware System is a production-ready, local-first Point of Sale (POS) and Inventory Management System designed for hardware stores. It uses Next.js 14, Electron, and PouchDB to ensure offline reliability and high performance.
+iPos System is a production-ready, local-first Point of Sale (POS) and Inventory Management System. 
+
+This version has been modernized to run on **React 19**, **Next.js 16**, **Tailwind CSS v4**, and **Electron 41**.
 
 ## 🚀 Key Features
 
-- **Rebranded & Production Ready:** Optimized for Windows (Primary) and macOS environments.
-- **Security & Licensing:** Integrated Hardware ID (HWID) lock and baked-in master admin for secure deployment.
-- **Local-First Architecture:** Works 100% offline with persistent PouchDB storage in the user's `AppData`.
-- **Keyboard-Centric UX:** Optimized for speed with global hotkeys:
-    - `F2` (Customer Management)
-    - `F3` (Payment Interface)
-    - `F4` (Product Search Focus)
-    - `F9` (Print Receipt)
-    - Alphanumeric keys automatically focus the search bar.
-- **Thermal Receipt (58mm):** Professional thermal printing with smart line-wrapping, price alignment, and policy footer.
-- **Inventory Analytics:** Real-time stock value tracking, profit margin analysis, and expense reports.
+- **Hardware Locked Architecture**: Security is baked into the binary.
+- **Local-First PouchDB**: Works 100% offline with zero database setup.
+- **React 19 & Next.js 16**: Utilizing the latest React features and Next.js Turbopack engine.
+- **Tailwind CSS v4**: Modern, high-performance CSS-first styling.
+- **Electron 41**: Robust desktop integration with native hardware access.
+- **Discord Error Logging**: Automatic crash reports sent via secure webhooks.
 
 ## 🛠 Tech Stack
 
-- **Framework:** Next.js 14 (App Router), React, Tailwind CSS
-- **Desktop:** Electron (with ASAR stability & Smart Node Engine Discovery)
-- **Database:** PouchDB (NoSQL, Local-first)
-- **UI Components:** Shadcn UI & Lucide Icons
-- **Charts:** Recharts
+- **Frontend**: Next.js 16 (App Router), React 19, Tailwind CSS v4, Lucide Icons, Shadcn/UI.
+- **State Management**: React Hooks & Context API.
+- **Database**: PouchDB (LevelDB adapter for local storage).
+- **Desktop**: Electron 41 (Chromium 134+).
+- **Charts**: Recharts 3.0.
 
-## Getting Started
+## 🏁 Quick Start
 
 ### 1. Installation
-Clone the repository and install dependencies:
 ```bash
-git clone https://github.com/your-repo/MC-Hardware-System.git
-cd FinOpenPOS
 npm install
 ```
 
-### 2. Run the Development Server
+### 2. Development
 ```bash
-# Web development
+# Run Next.js in dev mode
 npm run dev
 
-# Electron development
+# Run Electron (after building client)
 npm run electron-dev
 ```
 
-## Project Documentation
-- **[GOALS.md](GOALS.md):** User outcomes and feature roadmap.
-- **[RULES.md](RULES.md):** Coding standards and architecture.
-- **[HOW-TO-USE.md](HOW-TO-USE.md):** Usage instructions for the app.
-- **[TROUBLESHOOT.md](TROUBLESHOOT.md):** Common issues and fixes.
-- **[FLOW.md](FLOW.md):** Application logic diagrams.
-- **[SESSION_SUMMARY.md](SESSION_SUMMARY.md):** Detailed technical changes (Git Ignored).
+### 3. Production Build
+```bash
+# Build the Next.js client
+npm run build:client
+
+# Package for Windows
+npm run build-win
+```
+
+## 🔒 Security
+
+This system uses a **Hardware UUID (HWID) lock** to prevent unauthorized distribution. The `ALLOWED_HWID` is hardcoded in `main.js` during the build process to ensure the application only runs on verified hardware.
+
+---
+Developed with ❤️ for secure, high-performance retail management.

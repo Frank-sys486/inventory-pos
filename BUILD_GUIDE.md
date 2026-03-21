@@ -1,4 +1,4 @@
-# FinOpenPOS Build Guide (Secure Standalone)
+# iPos System Build Guide (Secure Standalone)
 
 This guide explains how to package the POS system into a **single, secure, and hardware-locked executable** for Windows and macOS.
 
@@ -46,10 +46,10 @@ This creates a `build_pack` folder containing the engine and the secure binary.
 3. Right-click and select **"Add to archive..."** (Requires WinRAR).
 4. Check the **"Create SFX archive"** box.
 5. Go to **Advanced tab** -> **SFX Options** button.
-6. In **Setup tab** -> "Run after extraction", type: `Start_FinOpenPOS.exe`.
+6. In **Setup tab** -> "Run after extraction", type: `Start_iPosSystem.exe`.
 7. In **Modes tab** -> Select **"Hide all"**.
 8. In **Update tab** -> Select **"Overwrite all files"**.
-9. Click **OK** twice to generate your single `FinOpenPOS_Pro.exe`.
+9. Click **OK** twice to generate your single `iPosSystem_Pro.exe`.
 
 ---
 
@@ -71,8 +71,8 @@ npm run build && npx electron-builder --mac
 
 ### Step 3: Result
 Look in the `dist/` folder for:
-*   **`FinOpenPOS.dmg`** (Installer)
-*   **`mac/FinOpenPOS.app`** (Standalone App)
+*   **`iPosSystem.dmg`** (Installer)
+*   **`mac/iPosSystem.app`** (Standalone App)
 
 ---
 

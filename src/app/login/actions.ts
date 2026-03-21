@@ -1,13 +1,18 @@
 'use server'
 
 import { signIn } from '@/auth'
+import { AuthError } from 'next-auth'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { dbUsers } from '@/lib/pouchdb'
 
-export async function login(formData: FormData) {
+export async function login(prevState: any, formData: FormData) {
   const email = formData.get('email') as string;
   const password = formData.get('password') as string;
+
+  if (!email || !password) {
+    return { error: 'Please enter both email and password' };
+  }
 
   try {
     await signIn('credentials', {
@@ -16,13 +21,20 @@ export async function login(formData: FormData) {
       redirectTo: '/admin',
     });
   } catch (error) {
-    if (error instanceof Error) {
-      if (error.message.includes('NEXT_REDIRECT')) {
-        throw error;
+    if (error instanceof AuthError) {
+      switch (error.type) {
+        case 'CredentialsSignin':
+          return { error: 'Invalid email or password' };
+        default:
+          return { error: 'Something went wrong. Please try again.' };
       }
-      console.error('Login error:', error.message);
     }
-    redirect('/error');
+    // Next.js redirect errors should be re-thrown
+    if ((error as any).digest?.includes('NEXT_REDIRECT')) {
+      throw error;
+    }
+    console.error('Login error:', error);
+    return { error: 'An unexpected error occurred' };
   }
 }
 

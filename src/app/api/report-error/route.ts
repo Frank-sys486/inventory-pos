@@ -4,10 +4,10 @@ export async function POST(request: Request) {
   try {
     const data = await request.json();
     
-    // Hardcoded Discord Webhook for FinOpenPOS Reports
+    // Hardcoded Discord Webhook for iPos System Reports
     const webhookUrl = "https://discord.com/api/webhooks/1481525446352044053/LR3jv0ynMkQJdEQ2oduD3KsaQ9fimti1YQ_dzXyBpdlbL4XVNA3CijCu_EKA8GNUCfAV";
 
-    const APP_NAME = "MC Hardware System (FinOpenPOS)";
+    const APP_NAME = "iPos System";
     const APP_VERSION = "1.0.0";
     const HWID = process.env.ALLOWED_HWID || "NOT_SET";
 
@@ -16,7 +16,7 @@ export async function POST(request: Request) {
       avatar_url: "https://cdn-icons-png.flaticon.com/512/564/564619.png",
       embeds: [
         {
-          title: "🚨 POS ERROR REPORT",
+          title: "🚨 iPos System ERROR REPORT",
           color: 0xE74C3C, // Red
           description: `An error occurred in the production environment of **${APP_NAME}**.`,
           fields: [
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
             },
           ],
           footer: {
-            text: "FinOpenPOS Error Logging System",
+            text: "iPos System Error Logging System",
           },
         },
       ],

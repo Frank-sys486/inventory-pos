@@ -1,7 +1,7 @@
 {
   "name": "finance",
   "version": "1.0.0",
-  "description": "FinOpenPOS Professional Management System",
+  "description": "iPos System - Professional Management System",
   "author": "Frank Borromeo",
   "private": true,
   "engines": {
@@ -11,15 +11,17 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:client": "node build-client.js",
     "start": "next start",
     "lint": "next lint",
     "electron-dev": "electron .",
     "build-exe": "npm run build && npx electron-builder",
-    "build-win": "npm run build && npx electron-builder --win"
+    "build-win": "npm run build && npx electron-builder --win",
+    "build-client": "node build-client.js"
   },
   "build": {
     "appId": "com.mchardware.app",
-    "productName": "MC Hardware System",
+    "productName": "iPos System",
     "directories": {
       "output": "dist"
     },
@@ -48,8 +50,7 @@
       "!dist/**/*",
       "!build_pack/**/*"
     ],
-    "extraResources": [
-    ],
+    "extraResources": [],
     "asar": true,
     "asarUnpack": [
       ".next/**/*",
@@ -66,35 +67,36 @@
     "@radix-ui/react-select": "^2.1.1",
     "@radix-ui/react-slot": "^1.1.0",
     "@radix-ui/react-tooltip": "^1.1.2",
+    "@tailwindcss/postcss": "4.2.2",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",
     "cors": "^2.8.6",
     "express": "^5.2.1",
-    "lucide-react": "^0.414.0",
-    "next": "14.2.5",
+    "lucide-react": "^0.577.0",
+    "next": "16.2.1",
     "next-auth": "^5.0.0-beta.30",
     "next-electron-server": "^1.0.0",
     "pouchdb": "^9.0.0",
     "pouchdb-find": "^9.0.0",
-    "react": "^18.3.1",
-    "react-dom": "^18",
-    "recharts": "^2.12.7",
-    "tailwind-merge": "^2.4.0",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "recharts": "3.8.0",
+    "tailwind-merge": "3.0.0",
     "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
-    "@types/node": "^20",
+    "@types/node": "^25.5.0",
     "@types/pouchdb": "^6.4.2",
     "@types/pouchdb-find": "^7.3.3",
-    "@types/react": "^18",
-    "@types/react-dom": "^18",
-    "electron": "^40.6.1",
+    "@types/react": "19.0.0",
+    "@types/react-dom": "19.0.0",
+    "electron": "41.0.3",
     "electron-builder": "^26.8.1",
-    "eslint": "^8",
-    "eslint-config-next": "14.2.5",
-    "postcss": "^8",
-    "tailwindcss": "^3.4.1",
-    "typescript": "^5"
+    "eslint": "^9.21.0",
+    "eslint-config-next": "16.2.1",
+    "postcss": "^8.5.8",
+    "tailwindcss": "4.2.2",
+    "typescript": "^5.9.3"
   }
 }

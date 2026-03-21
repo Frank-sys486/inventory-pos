@@ -18,7 +18,7 @@ function getHWID() {
 }
 
 console.log("\n========================================");
-console.log("   FinOpenPOS - HARDWARE ID FINDER");
+console.log("   iPos System - HARDWARE ID FINDER");
 console.log("========================================");
 console.log("\nYOUR UNIQUE HARDWARE ID IS:\n");
 console.log("  >>> " + getHWID() + " <<<");

@@ -3,6 +3,7 @@ export interface IProduct {
   _rev?: string;
   code?: string;
   name: string;
+  description?: string;
   price: number;
   unit: string;
   isArchived: boolean;

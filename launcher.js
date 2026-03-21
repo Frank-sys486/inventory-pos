@@ -17,11 +17,11 @@ function getHWID() {
 }
 
 // This value is automatically injected by bundle.js during compilation
-const ALLOWED_HWID = process.env.ALLOWED_HWID || "DEVELOPMENT_MODE";
+const ALLOWED_HWID = process.env.ALLOWED_HWID || "DB5787B6-1607-5275-9543-5BC5FE36F95C";
 const currentHWID = getHWID();
 
 console.log("\n========================================");
-console.log("      FIN OPEN POS SECURE LAUNCHER      ");
+console.log("          iPos System LAUNCHER          ");
 console.log("========================================\n");
 
 function getSystemNodePath() {

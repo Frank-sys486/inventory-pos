@@ -2,7 +2,7 @@ import type { NextAuthConfig } from "next-auth"
 import Credentials from "next-auth/providers/credentials"
 
 export const authConfig = {
-  secret: process.env.AUTH_SECRET || "finopenpos-secure-fallback-secret-12345-abcde",
+  secret: process.env.AUTH_SECRET || "ipos-system-secure-fallback-secret-12345-abcde",
   session: { 
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days

@@ -27,7 +27,8 @@ type Order = {
   }[];
 };
 
-export default function OrderDetailsPage({ params }: { params: { orderId: string } }) {
+export default function OrderDetailsPage({ params }: { params: Promise<{ orderId: string }> }) {
+  const { orderId } = React.use(params);
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +36,7 @@ export default function OrderDetailsPage({ params }: { params: { orderId: string
   useEffect(() => {
     const fetchOrderDetails = async () => {
       try {
-        const response = await fetch(`/api/orders/${params.orderId}`);
+        const response = await fetch(`/api/orders/${orderId}`);
         if (!response.ok) {
           throw new Error('Failed to fetch order details');
         }
@@ -49,7 +50,7 @@ export default function OrderDetailsPage({ params }: { params: { orderId: string
     };
 
     fetchOrderDetails();
-  }, [params.orderId]);
+  }, [orderId]);
 
   if (loading) {
     return (

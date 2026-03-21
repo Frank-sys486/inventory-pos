@@ -150,7 +150,7 @@ export default function Page() {
 
   const handlePrintSummary = () => {
     let content = "";
-    const shopName = "MC HARDWARE SYSTEM";
+    const shopName = "iPos System";
     const address = "SUMMARY REPORT";
     const dateStr = new Date().toLocaleDateString();
     const timeStr = new Date().toLocaleTimeString();

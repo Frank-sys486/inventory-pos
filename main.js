@@ -14,16 +14,16 @@ const baseDir = __dirname;
 
 // --- CRITICAL: HARDCODED SECURITY CONFIGURATION ---
 // This cannot be modified by the end-user as it lives in the ASAR.
-const ALLOWED_HWID = "00000000-0000-0000-0000-309C232230F0"; 
-const MASTER_ADMIN_EMAIL = "admin@pos.com";
+const ALLOWED_HWID = "DB5787B6-1607-5275-9543-5BC5FE36F95C"; 
+const MASTER_ADMIN_EMAIL = "admin@ipos.com";
 const MASTER_ADMIN_PASSWORD = "admin123";
-const PERMANENT_AUTH_SECRET = "finopenpos-ultra-secure-key-2026-xyz";
+const PERMANENT_AUTH_SECRET = "ipos-system-ultra-secure-key-2026-xyz";
 
 let userDataPath;
 try {
   userDataPath = app.getPath('userData');
 } catch (e) {
-  userDataPath = path.join(process.env.HOME || process.env.USERPROFILE, '.finopenpos');
+  userDataPath = path.join(process.env.HOME || process.env.USERPROFILE, '.ipos-system');
 }
 
 const dataPath = path.join(userDataPath, 'data');
@@ -119,7 +119,7 @@ function getHWID() {
 
 async function createWindow() {
   const win = new BrowserWindow({
-    title: "MC Hardware System",
+    title: "iPos System",
     backgroundColor: '#111111',
     webPreferences: { nodeIntegration: false, contextIsolation: true },
   });
@@ -138,7 +138,7 @@ async function createWindow() {
     return;
   }
 
-  win.loadURL('data:text/html,<body style="background:#111;color:white;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif"><h1>MC Hardware System Initializing...</h1></body>');
+  win.loadURL('data:text/html,<body style="background:#111;color:white;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif"><h1>iPos System Initializing...</h1></body>');
 
   const result = await startServer();
   if (result.error) {

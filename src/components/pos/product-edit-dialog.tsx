@@ -40,12 +40,14 @@ export function POSProductEditDialog({
 }: ProductEditDialogProps) {
   const [tempPrice, setTempPrice] = useState<number>(0);
   const [tempName, setTempName] = useState<string>("");
+  const [tempDescription, setTempDescription] = useState<string>("");
   const [tempTotal, setTempTotal] = useState<number>(0);
 
   useEffect(() => {
     if (product) {
       setTempPrice(product.price);
       setTempName(product.name);
+      setTempDescription(product.description || "");
       setTempTotal(product.price * product.quantity);
     }
   }, [product, open]);
@@ -69,6 +71,7 @@ export function POSProductEditDialog({
       onSave({
         ...product,
         name: tempName,
+        description: tempDescription,
         price: tempPrice,
       });
       onOpenChange(false);
@@ -92,6 +95,16 @@ export function POSProductEditDialog({
               value={tempName} 
               onChange={(e) => setTempName(e.target.value)} 
               className="col-span-3" 
+            />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="temp-description" className="text-right">Info</Label>
+            <Input 
+              id="temp-description" 
+              value={tempDescription} 
+              onChange={(e) => setTempDescription(e.target.value)} 
+              className="col-span-3" 
+              placeholder="Override description"
             />
           </div>
           <div className="grid grid-cols-4 items-center gap-4">

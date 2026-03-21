@@ -1,8 +1,9 @@
-# FinOpenPOS - Quality Assurance and Testing Guide
+# iPos System - Quality Assurance and Testing Guide
 
 ## 1. Introduction
 
-This document provides a step-by-step guide for testing the FinOpenPOS application to ensure it is ready for a production environment. The tests are designed to be executed by a quality assurance tester and cover all the core features of the system.
+This document provides a step-by-step guide for testing the iPos System application to ensure it is ready for a production environment.
+ The tests are designed to be executed by a quality assurance tester and cover all the core features of the system.
 
 ## 2. Prerequisites
 

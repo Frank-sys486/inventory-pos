@@ -129,6 +129,10 @@ export function ProductDialog({
             <Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="col-span-3" />
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="description" className="text-right">Description</Label>
+            <Input id="description" value={description} onChange={(e) => setDescription(e.target.value)} className="col-span-3" placeholder="Extra details (printed on receipt)" />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="cost" className="text-right">Cost *</Label>
             <Input id="cost" type="number" value={cost} onChange={(e) => setCost(Number(e.target.value))} className="col-span-3" />
           </div>

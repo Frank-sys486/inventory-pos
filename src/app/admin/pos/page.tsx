@@ -194,7 +194,7 @@ export default function POSPage() {
 
   const generateReceiptContent = (title: string, deliveryActive: boolean, received: number, change: number, orderId?: string) => {
     let html = "";
-    const shopName = "MC HARDWARE SYSTEM";
+    const shopName = "iPos System";
     const shopAddress = "BLK4 LOT29 Las Palmas Subdivision Cay Pombo Sta. Maria, Bulacan";
     const shopPhone = "09173002334 / 09287890410";
     const date = new Date().toLocaleDateString();
@@ -239,6 +239,9 @@ export default function POSPage() {
     selectedProducts.forEach((p) => {
       const itemTotal = (p.price * p.quantity).toFixed(2);
       html += line(`${p.quantity} ${p.name.toUpperCase()}`, itemTotal);
+      if (p.description) {
+        html += `<div class="receipt-line" style="font-size: 11px; margin-left: 15px; color: #444;">${p.description}</div>`;
+      }
       html += line(`  @ ${p.price.toFixed(2)}`, "", { size: 'sm' });
     });
 

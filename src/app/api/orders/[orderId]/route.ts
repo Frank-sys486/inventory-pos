@@ -4,13 +4,14 @@ import { NextResponse } from 'next/server'
 
 export async function GET(
   request: Request,
-  { params }: { params: { orderId: string } }
+  { params }: { params: Promise<{ orderId: string }> }
 ) {
+  const { orderId } = await params;
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    const doc: any = await dbOrders.get(params.orderId);
+    const doc: any = await dbOrders.get(orderId);
     
     // Verify user ownership
     if (doc.user_uid !== (session.user as any).id) {
@@ -35,14 +36,15 @@ export async function GET(
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { orderId: string } }
+  { params }: { params: Promise<{ orderId: string }> }
 ) {
+  const { orderId } = await params;
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
     const updateData = await request.json();
-    const existing: any = await dbOrders.get(params.orderId);
+    const existing: any = await dbOrders.get(orderId);
 
     // Verify user ownership
     if (existing.user_uid !== (session.user as any).id) {
@@ -63,15 +65,16 @@ export async function PATCH(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { orderId: string } }
+  { params }: { params: Promise<{ orderId: string }> }
 ) {
+  const { orderId } = await params;
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const isDeveloperMode = process.env.DEVELOPER_MODE === 'true';
 
   try {
-    const existing: any = await dbOrders.get(params.orderId);
+    const existing: any = await dbOrders.get(orderId);
 
     // Verify user ownership
     if (existing.user_uid !== (session.user as any).id) {

@@ -1,52 +1,72 @@
-# Local database files (CRITICAL: Do not commit transaction data)
-data/
+# Dependency directories
+node_modules/
+/jspm_packages/
 
-# Build artifacts
-/dist/
+# Next.js build artifacts
 /.next/
 /out/
+
+# Electron build artifacts
+/dist/
 /build/
 /build_pack/
 *.exe
+*.dmg
+*.AppImage
+*.deb
+*.rpm
+*.zip
 
-# Debug and Error files
-error.txt
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-*.log
+# Database (CRITICAL: Do not commit transaction or local data)
+data/
+*.db
+*.sqlite
 
-# Package managers
-node_modules/
-bun.lockb
-package-lock.json.old
-
-# Local env files
+# Local environment files
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+.env*.local
 
-# OS / Editor files
-.DS_Store
-Thumbs.db
-.vscode/
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+pos-debug.log
+db-debug.log
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
 .idea/
-*.swp
-*.swo
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
-# AI Instructions & Project Documentation (Gemini)
-gemini.md
-SESSION_SUMMARY.md
-GOALS.md
-HOW-TO-USE.md
-TROUBLESHOOT.md
-RULES.md
-FLOW.md
+# Testing
+/coverage/
 
-# Misc
+# Project Specific
+launcher.js.old
+main.js.old
+package-lock.json.old
 bundle.js
 sfx_config.txt
-*.pem
+
+# Documentation & AI
+gemini.md
+SESSION_SUMMARY.md
+# Keep core documentation in git, but ignore session-specific summaries
+# GOALS.md
+# HOW-TO-USE.md
+# TROUBLESHOOT.md
+# RULES.md
+# FLOW.md

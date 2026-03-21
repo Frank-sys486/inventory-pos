@@ -4,13 +4,14 @@ import { NextResponse } from 'next/server'
 
 export async function GET(
   request: Request,
-  { params }: { params: { customerId: string } }
+  { params }: { params: Promise<{ customerId: string }> }
 ) {
+  const { customerId } = await params;
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    const doc: any = await dbCustomers.get(params.customerId);
+    const doc: any = await dbCustomers.get(customerId);
     
     // Verify user ownership if needed, or just return
     return NextResponse.json(doc);
@@ -21,14 +22,15 @@ export async function GET(
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { customerId: string } }
+  { params }: { params: Promise<{ customerId: string }> }
 ) {
+  const { customerId } = await params;
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
     const updateData = await request.json();
-    const existing: any = await dbCustomers.get(params.customerId);
+    const existing: any = await dbCustomers.get(customerId);
 
     const updated = {
       ...existing,
@@ -44,15 +46,16 @@ export async function PATCH(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { customerId: string } }
+  { params }: { params: Promise<{ customerId: string }> }
 ) {
+  const { customerId } = await params;
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const isDeveloperMode = process.env.DEVELOPER_MODE === 'true';
 
   try {
-    const existing: any = await dbCustomers.get(params.customerId);
+    const existing: any = await dbCustomers.get(customerId);
 
     if (isDeveloperMode) {
       await dbCustomers.remove(existing);

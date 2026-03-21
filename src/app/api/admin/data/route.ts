@@ -219,7 +219,7 @@ export async function POST(req: Request) {
 
       headers.forEach((header, i) => {
         if (header === "_rev" || header === "user_uid" || (header === "_id" && !values[i])) return;
-        let val = values[i]?.trim().replace(/^"|"$/g, '').replace(/""/g, '"');
+        const val = values[i]?.trim().replace(/^"|"$/g, '').replace(/""/g, '"');
         if (val === undefined || val === "") return;
 
         if (header === "_id") { obj._id = val; return; }

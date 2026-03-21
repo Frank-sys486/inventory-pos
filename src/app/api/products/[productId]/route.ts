@@ -4,13 +4,14 @@ import { NextResponse } from 'next/server'
 
 export async function GET(
   request: Request,
-  { params }: { params: { productId: string } }
+  { params }: { params: Promise<{ productId: string }> }
 ) {
+  const { productId } = await params;
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    const product = await dbProducts.get(params.productId);
+    const product = await dbProducts.get(productId);
     return NextResponse.json(product);
   } catch (error) {
     return NextResponse.json({ error: 'Product not found' }, { status: 404 });
@@ -19,14 +20,15 @@ export async function GET(
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { productId: string } }
+  { params }: { params: Promise<{ productId: string }> }
 ) {
+  const { productId } = await params;
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
     const updateData = await request.json();
-    const existing: any = await dbProducts.get(params.productId);
+    const existing: any = await dbProducts.get(productId);
     
     const updated = {
       ...existing,
@@ -42,15 +44,16 @@ export async function PATCH(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { productId: string } }
+  { params }: { params: Promise<{ productId: string }> }
 ) {
+  const { productId } = await params;
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const isDeveloperMode = process.env.DEVELOPER_MODE === 'true';
 
   try {
-    const existing: any = await dbProducts.get(params.productId);
+    const existing: any = await dbProducts.get(productId);
 
     if (isDeveloperMode) {
       await dbProducts.remove(existing);
